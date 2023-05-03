@@ -1,12 +1,14 @@
-#  __------------=[ Elastic NSM Engineer ]=------------__
+# Elastic NSM Engineer
 
-### __`[Configuring Elastic Containers]`__  
-  ---
+### Configuring LX Containers
+
+---
 
 `lxc list`  
-`lxc start --all`  
+`lxc start --all`
 
-Connect to each containerized instance and begin configuration
+Connect to each containerized instance and begin configuration.
+
 ```
 Container Name            IP Address    
 ---------------------------------------
@@ -173,7 +175,7 @@ Configure Repo Server
 
 ---
 
-`ssh repo`  
+ `ssh repo`  
 `sudo yum install nginx -y`  
 `sudo unzip ~/all-class-files.zip -d /usr/share/nginx`  
 `sudo mv /usr/share/nginx/all-class-files /usr/share/nginx/fileshare/`  
@@ -304,11 +306,14 @@ Move the keys so Nginx has access to them
 `cd /etc/nginx/conf.d/`  
 `sudo curl -LO http://repo:8000/nginx/proxy.conf`  
 `sudo vi /etc/nginx/nginx.conf`
+
 ```
 :set nu
 :39
 ```
-Comment out the listener on port 80.      
+
+Comment out the listener on port 80. 
+
 ```   
     38     server {}
     39 #        listen       80;
@@ -352,6 +357,46 @@ Replace all instances of repo:8008 with https://repo/packages
 ```
 :%s/http:\/\/repo:8008\//https:\/\/repo\/packages\//g
 ```
+
+The updated code should read:
+
+```
+[local-base]
+name=local-base
+baseurl=https://repo/packages/local-base/
+enabled=1
+gpgcheck=0
+
+[local-rocknsm-2.5]
+name=local-rocknsm-2.5
+baseurl=https://repo/packages/local-rocknsm-2.5/
+enabled=1
+gpgcheck=0
+
+[local-elasticsearch-7.x]
+name=local-elasticsearch-7.x
+baseurl=https://repo/packages/local-elastic-7.x/
+enabled=1
+gpgcheck=0
+
+[local-epel]
+name=local-epel
+baseurl=https://repo/packages/local-epel/
+enabled=1
+gpgcheck=0
+
+[local-extras]
+name=local-extras
+baseurl=https://repo/packages/local-extras/
+enabled=1
+gpgcheck=0
+
+[local-updates]
+name=local-updates
+baseurl=https://repo/packages/local-updates/
+enabled=1
+gpgcheck=0
+```
 Copy the updated local.repo to the archive directory.
 
 `cp /etc/yum.repos.d/local.repo ~/archive/`
@@ -389,22 +434,243 @@ For each host, copy and move the Local CA Cert to the Trust Anchors Directory
 
 `for host in elastic{0..2} pipeline{0..2} kibana sensor; do scp ~/certs/localCA.crt root@$host:/etc/pki/ca-trust/source/anchors/localCA.crt ; done`
 
-For each host, update the CA Trust
+For each host, update the CA Trust with this command or manually
 
-`for host in elastic{0..2} pipeline{0..2} kibana sensor; do ssh root@$host 'sudo update-ca-trust' ; done`
+`for host in elastic{0..2} pipeline{0..2} kibana sensor; do ssh elastic@$host 'sudo update-ca-trust' ; done`
 
-For each host, remake the yum cache
+For each host, remake the yum cache with this command or manually
 
-`for host in elastic{0..2} pipeline{0..2} kibana sensor; do ssh root@$host 'sudo yum makecache fast' ; done`
+`for host in elastic{0..2} pipeline{0..2} kibana sensor; do ssh elastic@$host 'sudo yum makecache fast' ; done`
 
 `exit`
 
-Finallt, copy the CRT from the repo into the host workstation
+Finally, copy the CRT from the repo into the host workstation
 
 `sudo scp elastic@repo:/home/elastic/certs/localCA.crt ~/localCA.crt`
 
 ---
 
-So fucking free
+Configuring the Sensor Monitor Interface
 
 ---
+
+Install ethtool and its dependencies  
+`sudo yum install ethtool -y`  
+
+Show interface informtion and begin configuring eth1 as the monitor interface  
+`ip a`  
+`sudo ethtool -k eth1`  
+
+Pull the interface bash script from the repo
+`sudo curl -LO https://repo/fileshare/interface.sh`  
+
+```
+#!/bin/bash
+
+for var in $@
+do
+  echo "turning off offloading on $var"
+  ethtool -K $var tso off gro off lro off gso off rx off tx off sg off rxvlan off txvlan off
+  ethtool -N $var rx-flow-hash udp4 sdfn
+  ethtool -N $var rx-flow-hash udp6 sdfn
+  ethtool -C $var adaptive-rx off
+  ethtool -C $var rx-usecs 1000
+  ethtool -G $var rx 4096
+done
+exit 0
+```
+Make the file executable  
+`sudo chmod +x interface.sh`  
+
+Run the script.  
+`sudo ./interface.sh eth1`  
+
+Verify the changes were made  
+`sudo ethtool -k eth1`
+
+Run the script on startup  
+`sudo vi /sbin/ifup-local`  
+
+Update the file to add in the ethtool persistence
+
+```
+#!/bin/bash
+if [[ "$1" == "eth1" ]]
+then
+for i in rx tx sg tso ufo gso gro lro rxvlan txvlan
+do
+/usr/sbin/ethtool -K $1 $i off
+done
+/usr/sbin/ethtool -N $1 rx-flow-hash udp4 sdfn
+/usr/sbin/ethtool -N $1 rx-flow-hash udp6 sdfn
+/usr/sbin/ethtool -n $1 rx-flow-hash udp6
+/usr/sbin/ethtool -n $1 rx-flow-hash udp4
+/usr/sbin/ethtool -C $1 rx-usecs 10
+/usr/sbin/ethtool -C $1 adaptive-rx off
+/usr/sbin/ethtool -G $1 rx 4096
+
+/usr/sbin/ip link set dev $1 promisc on
+
+fi
+```
+
+Make the ethtool persistence file executable  
+`sudo chmod +x /sbin/ifup-local`  
+
+Add a reference to the created script to run on startup  
+`sudo vi /etc/sysconfig/network-scripts/ifup`  
+
+```
+if [ -x /sbin/ifup-local ]; then
+/sbin/ifup-local #{DEVICE}
+fi
+```
+
+Create and edit the eth1 interface script  
+`sudo vi /etc/sysconfig/network-scripts/ifcfg-eth1`  
+```
+# [monitor]
+DEVICE=eth1
+BOOTPROTO=none
+ONBOOT=yes
+NM_CONTROLLED=no
+TYPE=Ethernet
+```
+
+Reboot the networking interfaces and verify changes  
+`sudo systemctl restart network`  
+`sudo ethtool -k eth1`  
+`ip a`  
+
+Test the capture interface  
+`sudo tcpdump -nn -i eth1`  
+`sudo tcpdump -nn -i eth1 '!port 22'`
+`exit`  
+
+---
+
+Installing & Configuring Stenographer
+
+---
+
+Install the stenographer package from the local repo
+`ssh sensor`  
+`sudo yum install stenographer -y`  
+`sudo yum install which`  
+
+Edit the configuration file for stenographer  
+`cd /etc/stenographer`  
+`sudo vi config`  
+
+```
+{
+  "Threads": [
+    { "PacketsDirectory": "/data/stenographer/packets"
+    , "IndexDirectory": "/data/stenographer/index"
+    , "MaxDirectoryFiles": 30000
+    , "DiskFreePercentage": 30
+    }
+  ]
+  , "StenotypePath": "/usr/bin/stenotype"
+  , "Interface": "eth1"
+  , "Port": 1234
+  , "Host": "127.0.0.1"
+  , "Flags": []
+  , "CertPath": "/etc/stenographer/certs"
+}
+
+```
+
+Create the data directories for data storage
+`sudo mkdir -p /data/stenographer/{index,packets}`  
+
+Change the ownership of the stenographer data directory to allow writing
+`sudo chown -R stenographer:stenographer /data/stenographer `
+
+Execute the stenokeys script to generate a key-pair
+`sudo stenokeys.sh stenographer stenographer`  
+
+Enable and start stenographer
+`sudo systemctl enable stenographer --now`  
+`sudo systemctl status stenographer`  
+
+Verify stenographer is operating as intended  
+`ping 8.8.8.8`  
+`sudo stenoread 'host 8.8.8.8' -nn`
+`ll /data/stenographer/{index,packets}`    
+
+`exit`  
+
+---
+
+Installing and Configuring Suricata  
+
+---
+
+Install the suricata package from the local repo  
+`ssh sensor`  
+`sudo yum install suricata -y`  
+
+Edit the configuration files for suricata  
+`sudo -s`  
+`cd /etc/suricata`  
+`sudo vi suricata.yaml`  
+```
+:set nu
+```
+```
+:56     default-log-dir: /data/suricata
+:60     enabled: no
+:76     enabled: no
+:404    enabled: no
+:557    enabled: no
+:580    - interface: eth1
+:582    threads: 3
+:981    run-as:
+:982    user:suricata
+:983    group:suricata
+:1434   set-cpu-affinity: yes
+:1452   cpu: [ "0-2" ]
+:1459   medium: [ 1 ]
+:1460   high: [ 2 ]
+:1461   default: "high"
+:1500   enabled: no
+:1516   enabled: no
+:1521   enabled: no
+:1527   enabled: no
+:1536   enabled: no
+```
+
+Edit the sysconfig for suricata  
+`sudo vi /etc/sysconfig/suricata`  
+```
+:8      OPTIONS="--af-packet=eth1 --user suricata --group suricata"
+```
+
+Point suricata to pull rulesets from the repo  
+`sudo suricata-update add-source emergingthreats https://repo/fileshare/emerging.threats.tar.gz`
+
+Update suricata to refresh the loaded ruleset  
+`sudo suricata-update`  
+
+Make the suricata data directories and assign permissions
+`sudo mkdir -p /data/suricata`
+`sudo chown -R suricata:suricata /data/suricata`  
+
+Enable and start suricata
+`sudo systemctl enable suricata --now`  
+`sudo systemctl status suricata`
+
+Verify suricata is operating as intended
+`curl google.com`  
+`cat /data/suricata/eve.json`
+
+`exit`
+
+---
+
+
+
+
+
+
