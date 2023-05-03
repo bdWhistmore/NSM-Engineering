@@ -399,6 +399,10 @@ For each host, remake the yum cache
 
 `exit`
 
+Finallt, copy the CRT from the repo into the host workstation
+
+`sudo scp elastic@repo:/home/elastic/certs/localCA.crt ~/localCA.crt`
+
 ---
 
 So fucking free
