@@ -1,60 +1,19 @@
+
+
 # Elastic NSM Engineer
 
-### Configuring LX Containers
-
----
-
+Begin by listing the available containers  
 `lxc list`  
 `lxc start --all`
 
-Connect to each containerized instance and begin configuration.
+Connect to each containerized instance and begin network configuration.
+
+`for host in elastic{0..2} pipeline{0..2} kibana sensor; do sudo lxc exec -t $host -- /bin/bash -c "vi /etc/sysconfig/network-scripts/ifcfg-eth0 && systemctl restart network"; done`
+
+The following network configurations should be added
 
 ```
-Container Name            IP Address    
----------------------------------------
-ssh elastic@elastic0      10.81.139.30
-ssh elastic@elastic1      10.81.139.31
-ssh elastic@elastic2      10.81.139.32
-ssh elastic@pipeline0     10.81.139.40
-ssh elastic@pipeline1     10.81.139.41
-ssh elastic@pipeline2     10.81.139.42
-ssh elastic@kibana        10.81.139.50
-ssh elastic@repo          10.81.139.10
-ssh elastic@sensor        10.81.139.20     
-```
-
-Edit the Hosts File:
-
-`sudo vi /etc/hosts`
-```
-127.0.0.1 localhost
-10.81.139.10 repo
-10.81.139.20 sensor
-10.81.139.30 elastic0
-10.81.139.31 elastic1
-10.81.139.32 elastic2
-10.81.139.40 pipeline0
-10.81.139.41 pipeline1
-10.81.139.42 pipeline2
-10.81.139.50 kibana
-```
-
-Disable IPV6:  
-
-`sudo vim /etc/sysctl.conf` 
- ```
-net.ipv6.conf.all.disable_ipv6=0
-```
-
-Edit Network Scripts
-
-`sudo vim /etc/sysconfig/network-scripts/ifcf-eth0`
-
-Configure the Networking
-
-
-```
-# [elastic]
+# [elastic0]
 DEVICE=eth0
 BOOTPROTO=none
 ONBOOT=yes
@@ -68,7 +27,35 @@ PREFIX=24
 ```
 
 ```
-# [pipeline]
+# [elastic1]
+DEVICE=eth0
+BOOTPROTO=none
+ONBOOT=yes
+HOSTNAME=elastic1
+NM_CONTROLLED=no
+TYPE=Ethernet
+DHCP_HOSTNAME=elastic1
+IPADDR=10.81.139.31
+GATEWAY=10.81.139.1
+PREFIX=24
+```
+
+```
+# [elastic2]
+DEVICE=eth0
+BOOTPROTO=none
+ONBOOT=yes
+HOSTNAME=elastic2
+NM_CONTROLLED=no
+TYPE=Ethernet
+DHCP_HOSTNAME=elastic2
+IPADDR=10.81.139.32
+GATEWAY=10.81.139.1
+PREFIX=24
+```
+
+```
+# [pipeline0]
 DEVICE=eth0
 BOOTPROTO=none
 ONBOOT=yes
@@ -77,6 +64,34 @@ NM_CONTROLLED=no
 TYPE=Ethernet
 DHCP_HOSTNAME=pipeline0
 IPADDR=10.81.139.40
+GATEWAY=10.81.139.1
+PREFIX=24
+```
+
+```
+# [pipeline1]
+DEVICE=eth0
+BOOTPROTO=none
+ONBOOT=yes
+HOSTNAME=pipeline1
+NM_CONTROLLED=no
+TYPE=Ethernet
+DHCP_HOSTNAME=pipeline1
+IPADDR=10.81.139.41
+GATEWAY=10.81.139.1
+PREFIX=24
+```
+
+```
+# [pipeline2]
+DEVICE=eth0
+BOOTPROTO=none
+ONBOOT=yes
+HOSTNAME=pipeline2
+NM_CONTROLLED=no
+TYPE=Ethernet
+DHCP_HOSTNAME=pipeline2
+IPADDR=10.81.139.42
 GATEWAY=10.81.139.1
 PREFIX=24
 ```
@@ -123,14 +138,34 @@ GATEWAY=10.81.139.1
 PREFIX=24
 ```
 
-Restart Networking and Verify Container IP  
+Verify Container IP  
 
-`sudo systemctl restart network`  
 `lxc list`
 
-Make the SSH Config 
+Edit the Hosts File:  
 
-`sudo vi ~/.ssh/config`
+`sudo vi /etc/hosts`  
+
+```
+127.0.0.1 localhost
+10.81.139.10 repo
+10.81.139.20 sensor
+10.81.139.30 elastic0
+10.81.139.31 elastic1
+10.81.139.32 elastic2
+10.81.139.40 pipeline0
+10.81.139.41 pipeline1
+10.81.139.42 pipeline2
+10.81.139.50 kibana
+```
+
+Copy the edited hosts file to each container excluding repo
+
+`for host in elastic{0..2} pipeline{0..2} kibana sensor; do sudo scp /etc/hosts elastic@$host:~/hosts && ssh -t elastic@$host 'sudo mv ~/hosts /etc/hosts'; done`   
+
+Make the ssh config  
+
+`sudo vi ~/.ssh/config`  
 
 ```
 Host repo
@@ -175,7 +210,7 @@ Configure Repo Server
 
 ---
 
- `ssh repo`  
+`ssh repo`  
 `sudo yum install nginx -y`  
 `sudo unzip ~/all-class-files.zip -d /usr/share/nginx`  
 `sudo mv /usr/share/nginx/all-class-files /usr/share/nginx/fileshare/`  
@@ -230,24 +265,6 @@ Verify repo accessibility by opening chrome and browsing to
 https://repo:8000 
 https://repo:8008 
 ```
-
-Configure the containers to pull from the repo  
-`ssh sensor`  
-`sudo yum list zeek`  
-`mkdir ~/archive`  
-`ll /etc/yum.repos.d`  
-
-Move the local repos to the previously created archive directory  
-
-`sudo mv /etc/yum.repos.d/* ~/archive/`  
-`cd /etc/yum.repos.d/`  
-`sudo curl -LO http://repo:8000/local.repo`  
-`sudo vi /etc/yum.repos.d/local.repo` 
-``` 
-:%s/<hostname:port>/repo:8008/g
-```
-`sudo yum makecache fast`  
-`exit`
 
 ---
 
@@ -310,11 +327,10 @@ Move the keys so Nginx has access to them
 ```
 :set nu
 :39
-```
 
 Comment out the listener on port 80. 
 
-```   
+  
     38     server {}
     39 #        listen       80;
     40 #        listen       [::]:80;
@@ -338,29 +354,66 @@ Allow access through the firewall
 `sudo firewall-cmd --reload`  
 `sudo firewall-cmd --list-all`  
 
+`exit` 
+
+---
+
+Update the Nginx proxy configuration
+
+---
+
+`ssh repo`  
+
+`sudo vi /etc/nginx/conf.d/proxy.conf`
+```
+     28   location /packages/ 
+     29     proxy_pass http://127.0.0.1:8008/;
+```
+
 Restart Nginx.  
 `systemctl restart nginx`  
 `^restart^status`  
 `ss -lnt`  
 `exit`
 
----
-Configure the containers to pull from the local repository  
 
 ---
 
-`ssh sensor`
-`vi /etc/yum.repos.d/local.repo`  
+Push the created certificate from the repo to all the containers
 
-Replace all instances of repo:8008 with https://repo/packages  
+---
 
-```
-:%s/http:\/\/repo:8008\//https:\/\/repo\/packages\//g
-```
+`ssh repo`  
 
-The updated code should read:
+For each host, copy the local cert from the repo home directory to all the containers and update the ca-trust
 
-```
+`for host in elastic{0..2} pipeline{0..2} kibana sensor; do sudo scp ~/certs/localCA.crt elastic@$host:~/localCA.crt && ssh -t elastic@$host 'sudo mv ~/localCA.crt /etc/pki/ca-trust/source/anchors/ && sudo update-ca-trust'; done`  
+
+Finally, copy the CRT from the repo into the host workstation
+
+`exit`  
+`sudo scp elastic@repo:/home/elastic/certs/localCA.crt ~/localCA.crt`  
+
+---
+
+Configure the sensor to pull from the repo  
+
+---
+
+`ssh sensor`  
+`sudo yum list zeek`  
+`mkdir ~/archive`  
+`ll /etc/yum.repos.d`  
+
+Move the local repos to the previously created archive directory  
+
+`sudo mv /etc/yum.repos.d/* ~/archive/`  
+`cd /etc/yum.repos.d/`  
+
+Create the local.repo file
+`sudo vi /etc/yum.repos.d/local.repo` 
+
+``` 
 [local-base]
 name=local-base
 baseurl=https://repo/packages/local-base/
@@ -396,57 +449,34 @@ name=local-updates
 baseurl=https://repo/packages/local-updates/
 enabled=1
 gpgcheck=0
+
 ```
-Copy the updated local.repo to the archive directory.
+Reload the yum cache
+
+`sudo yum makecache fast`  
+
+
+`exit`
+
+---
+
+Configure the rest of the containers to pull from the local repository  
+
+---
+
+Connect to the sensor to begin pushing the files to the other containers  
+
+`ssh sensor`
+
+Copy the updated local.repo to the archive directory.  
 
 `cp /etc/yum.repos.d/local.repo ~/archive/`
 
-For each host, backup the repos in the archive directory
+For each host, move the files from the yum.repos.d directory to an archive, and then copy the local.repo file from the sensor's /etc/yum.repos.d/ to all the containers excluding the repo, and then update the yumcache to read the new files. make sure your local.repo file is updated in the sensors /etc/yum.repos.d directory if you want to use this command:
 
-`for host in elastic{0..2} pipeline{0..2} kibana; do scp -r ~/archive elastic@$host:/home/elastic ; done`
-
-For each host, change the root password to circumvent permission issues
-
-`for host in elastic{0..2} pipeline{0..2} kibana; do sudo passwd root ; done`
-
-For each host, empty the repos.d folder by removing the default repos stored in /etc/yum.repos.d/
-
-`for host in elastic{0..2} pipeline{0..2} kibana; do sudo rm -f /etc/yum.repos.d/* ; done`
-
-For each host, scp the local.repo file from the sensor to the empty remote yum.repos.d directory
-
-`for host in elastic{0..2} pipeline{0..2} kibana; do sudo scp /etc/yum.repos.d/local.repo root@$host:/etc/yum.repos.d/local.repo ; done`  
+`for host in elastic{0..2} pipeline{0..2} kibana; do ssh -t elastic@$host 'sudo mkdir ~/archive && sudo mv /etc/yum.repos.d/* ~/archive/' && sudo scp /etc/yum.repos.d/local.repo elastic@$host:~/local.repo && ssh -t elastic@$host 'sudo mv ~/local.repo /etc/yum.repos.d/local.repo && sudo yum makecache fast' ; done`
 
 `exit`
-
-Update the Nginx proxy configuration
-
-`ssh repo`  
-
-`sudo vi /etc/nginx/conf.d/proxy.conf`
-```
-     28   location /packages/ 
-     29     proxy_pass http://127.0.0.1:8008/;
-```
-`sudo systemctl restart nginx`  
-
-For each host, copy and move the Local CA Cert to the Trust Anchors Directory
-
-`for host in elastic{0..2} pipeline{0..2} kibana sensor; do scp ~/certs/localCA.crt root@$host:/etc/pki/ca-trust/source/anchors/localCA.crt ; done`
-
-For each host, update the CA Trust with this command or manually
-
-`for host in elastic{0..2} pipeline{0..2} kibana sensor; do ssh elastic@$host 'sudo update-ca-trust' ; done`
-
-For each host, remake the yum cache with this command or manually
-
-`for host in elastic{0..2} pipeline{0..2} kibana sensor; do ssh elastic@$host 'sudo yum makecache fast' ; done`
-
-`exit`
-
-Finally, copy the CRT from the repo into the host workstation
-
-`sudo scp elastic@repo:/home/elastic/certs/localCA.crt ~/localCA.crt`
 
 ---
 
@@ -544,7 +574,7 @@ Reboot the networking interfaces and verify changes
 
 Test the capture interface  
 `sudo tcpdump -nn -i eth1`  
-`sudo tcpdump -nn -i eth1 '!port 22'`
+`sudo tcpdump -nn -i eth1 '!port 22'`  
 `exit`  
 
 ---
@@ -553,7 +583,7 @@ Installing & Configuring Stenographer
 
 ---
 
-Install the stenographer package from the local repo
+Install the stenographer package from the local repo  
 `ssh sensor`  
 `sudo yum install stenographer -y`  
 `sudo yum install which`  
@@ -581,22 +611,22 @@ Edit the configuration file for stenographer
 
 ```
 
-Create the data directories for data storage
+Create the data directories for data storage  
 `sudo mkdir -p /data/stenographer/{index,packets}`  
 
-Change the ownership of the stenographer data directory to allow writing
+Change the ownership of the stenographer data directory to allow writing  
 `sudo chown -R stenographer:stenographer /data/stenographer `
 
-Execute the stenokeys script to generate a key-pair
+Execute the stenokeys script to generate a key-pair  
 `sudo stenokeys.sh stenographer stenographer`  
 
-Enable and start stenographer
+Enable and start stenographer  
 `sudo systemctl enable stenographer --now`  
 `sudo systemctl status stenographer`  
 
-Verify stenographer is operating as intended  
+Verify stenographer is operating as intended    
 `ping 8.8.8.8`  
-`sudo stenoread 'host 8.8.8.8' -nn`
+`sudo stenoread 'host 8.8.8.8' -nn`  
 `ll /data/stenographer/{index,packets}`    
 
 `exit`  
@@ -617,8 +647,7 @@ Edit the configuration files for suricata
 `sudo vi suricata.yaml`  
 ```
 :set nu
-```
-```
+
 :56     default-log-dir: /data/suricata
 :60     enabled: no
 :76     enabled: no
@@ -653,21 +682,166 @@ Point suricata to pull rulesets from the repo
 Update suricata to refresh the loaded ruleset  
 `sudo suricata-update`  
 
-Make the suricata data directories and assign permissions
-`sudo mkdir -p /data/suricata`
+Make the suricata data directories and assign permissions  
+`sudo mkdir -p /data/suricata`  
 `sudo chown -R suricata:suricata /data/suricata`  
 
-Enable and start suricata
-`sudo systemctl enable suricata --now`  
-`sudo systemctl status suricata`
+Enable and start suricata  
+`sudo systemctl enable suricata --now`   
+`sudo systemctl status suricata`  
 
-Verify suricata is operating as intended
+Verify suricata is operating as intended  
 `curl google.com`  
 `cat /data/suricata/eve.json`
 
 `exit`
 
 ---
+
+Installing & Configuring Zeek  
+
+---
+
+Install the Zeek package & Dependencies from the local repo 
+`ssh sensor`  
+`sudo yum install zeek -y`  
+`sudo yum install zeek-plugin-af_packet -y`  
+`sudo yum install zeek-plugin-kafka -y`  
+
+Edit the configuration files for Zeek  
+`cd /etc/zeek`  
+`sudo vi /etc/zeek/zeekctl.cfg`  
+```
+:set nu
+
+:67     LogDir = /data/zeek  
+:68     lb_custom.InterfacePrefix=af_packet::   #newline
+
+``` 
+`lscpu -e`  
+`sudo vi /etc/zeek/node.cfg`  
+
+```
+:set nu
+
+:8  #
+:9  #
+:10 #
+:11 #
+
+:16-31 [Remove #]
+
+:23   pin_cpus=1                #newline
+:32   interface=eth1
+:33   lb_method=custom          #newline
+:34   lb_procs=2                #newline
+:35   pin_cpus=2,3              #newline
+:36   env_vars=fanout_id=77     #newline
+
+```
+
+Continue creating and editing config files for zeek  
+`sudo mkdir /usr/share/zeek/site/scripts`  
+`cd /usr/share/zeek/site/scripts`  
+
+Pull down extra configuration files from the local repo  
+`url_base="https://repo/fileshare/zeek/"; files=("afpacket.zeek" "extension.zeek" "extract-files.zeek" "fsf.zeek" "json.zeek" "kafka.zeek"); for file in "${files[@]}"; do sudo curl -LO "${url_base}${file}"; done`  
+
+Edit the local.zeek file  
+`sudo vi /usr/share/zeek/site/local.zeek` 
+
+```
+:set nu
+
+:104 @load ./scripts/afpacket.zeek    #newline
+:105 @load ./scripts/extension.zeek   #newline
+:107 redef ignore_checksums = T;      #newline
+
+```
+
+Continue creating and editing config files for zeek  
+`sudo mkdir /data/zeek`  
+`chown -R zeek:zeek /data/zeek`  
+`chown -R zeek:zeek /etc/zeek`  
+`chown -R zeek:zeek /usr/share/zeek`  
+`chown -R zeek:zeek /usr/bin/zeek`
+`chown -R zeek:zeek /usr/bin/capstats`
+`chown -R zeek:zeek /var/spool/zeek`      
+
+Set capabilities of the zeek user  
+`sudo /sbin/setcap cap_net_raw,cap_net_admin=eip /usr/bin/zeek`  
+`sudo /sbin/setcap cap_net_raw,cap_net_admin=eip /usr/bin/capstats`  
+`sudo getcap /usr/bin/zeek`  
+`sudo getcap /usr/bin/capstats`  
+
+Deploy zeek as a zeek user  
+`sudo -u zeek zeekctl deploy`  
+`sudo -u zeek zeekctl status`
+
+Verify zeek data collection  
+`ll /data/zeek/current/`  
+`exit`  
+
+---
+
+Installing & Configuring FSF
+
+---
+
+Install the fsf package from the local repo   
+`sudo yum install fsf -y`
+
+Edit the configuration files for fsf  
+`sudo vi /opt/fsf/fsf-server/conf/config.py`  
+
+```
+:set nu
+
+:9      'LOG_PATH' : '/data/fsf'
+:10     'YARA_PATH' : '/var/lib/yara-rules/rules.yara
+:11     'PID_PATH' : '/run/fsf/fsf.pid`
+:12     'EXPORT_PATH' : '/data/fsf/archive'
+:15     ['rockout]
+:18     { 'IP_ADDRESS' : "localhost", 'PORT' : 5800 }
+
+```
+
+Create the directories for fsf to access  
+`sudo mkdir -p /data/fsf/archive`
+
+Change the permissions for the directories  
+`sudo chown -R fsf: /data/fsf`
+
+Edit the fsf client config  
+`sudo vi /opt/fsf/fsf-client/conf/config.py`  
+
+```
+:set nu
+
+:9      ['localhost',]
+```
+
+Enable and start the fsf service  
+`sudo systemctl enable fsf --now`  
+`sudo systemctl status fsf`  
+
+Verify fsf service is running as intended  
+`/opt/fsf/fsf-client/fsf_client.py --full ~/interface.sh`
+`ll /data/fsf/`
+
+
+`exit`
+
+---
+
+
+
+---
+
+
+
+
+
 
 
 
