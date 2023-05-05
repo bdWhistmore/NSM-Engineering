@@ -91,19 +91,6 @@ PREFIX=24
 ```
 
 ```
-# [repo]
-DEVICE=eth0
-BOOTPROTO=none
-ONBOOT=yes
-HOSTNAME=repo
-NM_CONTROLLED=no
-TYPE=Ethernet
-IPADDR=10.81.139.10
-GATEWAY=10.81.139.1
-PREFIX=24
-```
-
-```
 # [kibana]
 DEVICE=eth0
 BOOTPROTO=none
@@ -125,6 +112,19 @@ HOSTNAME=sensor
 NM_CONTROLLED=no
 TYPE=Ethernet
 IPADDR=10.81.139.20
+GATEWAY=10.81.139.1
+PREFIX=24
+```
+
+```
+# [repo]
+DEVICE=eth0
+BOOTPROTO=none
+ONBOOT=yes
+HOSTNAME=repo
+NM_CONTROLLED=no
+TYPE=Ethernet
+IPADDR=10.81.139.10
 GATEWAY=10.81.139.1
 PREFIX=24
 ```
@@ -152,7 +152,7 @@ Edit the Hosts File:
 
 Copy the edited hosts file to each container excluding repo
 
-`for host in elastic{0..2} pipeline{0..2} kibana sensor; do sudo scp /etc/hosts elastic@$host:~/hosts && ssh -t elastic@$host 'sudo mv ~/hosts /etc/hosts'; done`   
+`for host in elastic{0..2} pipeline{0..2} kibana sensor; do sudo scp /etc/hosts elastic@$host:~/hosts && ssh -t elastic@$host 'sudo mv ~/hosts /etc/hosts && sudo systemctl restart network'; done`   
 
 Create the SSH config  
 
@@ -191,9 +191,9 @@ Generate a SSH Keypair
 
 `ssh-keygen`
 
-Copy SSH Keypair to Containers
+Copy SSH Keypair to All Containers Except the Local Repository
 
-`for host in sensor repo elastic{0..2} pipeline{0..2} kibana; do ssh-copy-id $host; done`
+`for host in sensor elastic{0..2} pipeline{0..2} kibana; do ssh-copy-id $host; done`
 
 ---
 
@@ -499,7 +499,8 @@ Show interface informtion and begin configuring eth1 as the monitor interface
 `ip a`  
 `sudo ethtool -k eth1`  
 
-Pull the interface bash script from the repo
+Pull the interface bash script from the repo  
+`cd ~/`  
 `sudo curl -LO https://repo/fileshare/interface.sh`  
 
 ```
@@ -647,6 +648,7 @@ Installing and Configuring Suricata
 
 Install the suricata package from the local repo  
 `ssh sensor`  
+`cd ~/`  
 `sudo yum install suricata -y`  
 
 Edit the configuration files for suricata  
@@ -681,7 +683,7 @@ Edit the configuration files for suricata
 Edit the sysconfig for suricata  
 `sudo vi /etc/sysconfig/suricata`  
 ```
-:8      OPTIONS="--af-packet=eth1 --user suricata --group suricata"
+:8      OPTIONS="--af-packet=eth1 --user suricata --group suricata "
 ```
 
 Point suricata to pull rulesets from the repo  
@@ -712,6 +714,7 @@ Installing and Configuring Zeek
 
 Install the Zeek package & Dependencies from the local repo 
 `ssh sensor`  
+`cd ~/`  
 `sudo yum install zeek -y`  
 `sudo yum install zeek-plugin-af_packet -y`  
 `sudo yum install zeek-plugin-kafka -y`  
@@ -772,9 +775,9 @@ Continue creating and editing config files for zeek
 `chown -R zeek:zeek /data/zeek`  
 `chown -R zeek:zeek /etc/zeek`  
 `chown -R zeek:zeek /usr/share/zeek`  
-`chown -R zeek:zeek /usr/bin/zeek`
-`chown -R zeek:zeek /usr/bin/capstats`
-`chown -R zeek:zeek /var/spool/zeek`      
+`chown -R zeek:zeek /usr/bin/zeek`  
+`chown -R zeek:zeek /usr/bin/capstats`  
+`chown -R zeek:zeek /var/spool/zeek`  
 
 Set capabilities of the zeek user  
 `sudo /sbin/setcap cap_net_raw,cap_net_admin=eip /usr/bin/zeek`  
@@ -834,7 +837,7 @@ Enable and start the fsf service
 `sudo systemctl status fsf`  
 
 Verify fsf service is running as intended  
-`/opt/fsf/fsf-client/fsf_client.py --full ~/interface.sh`
+`/opt/fsf/fsf-client/fsf_client.py --full ~/interface.sh`  
 `ll /data/fsf/`
 
 
@@ -856,15 +859,15 @@ Edit the zeek config file to the additional fsf scripts
 
 :106      @load ./scripts/extract-files.zeek
 :107      @load ./scripts/fsf.zeek
-:108      @load ./scripts/zeek.json
+:108      @load ./scripts/json.zeek
 ```
 
 Stop zeek workers and redeploy  
 `sudo -u zeek zeekctl stop`  
-`sudo -u zeek zeekctl start`
+`sudo -u zeek zeekctl start`   
 `sudo -u zeek zeekctl status`  
 
-Verify the filescanning is loaded by zeek
+Verify the filescanning is loaded by zeek  
 `curl google.com`  
 `cat /data/zeek/current/files.log`
 
