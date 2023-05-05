@@ -206,7 +206,7 @@ Copy SSH Keypair to Containers
 
 ---
 
-Configure Local Repository Server
+Configure the Local Repository Server
 
 ---
 
@@ -413,7 +413,7 @@ Finally, copy the CRT from the repo into the host workstation
 
 ---
 
-Configure the sensor to pull from the local repository  
+Configuring the sensor to pull from the local repository  
 
 ---
 
@@ -596,7 +596,7 @@ Test the capture interface
 
 ---
 
-Installing & Configuring Stenographer
+Installing and Configuring Stenographer
 
 ---
 
@@ -715,7 +715,7 @@ Verify suricata is operating as intended
 
 ---
 
-Installing & Configuring Zeek  
+Installing and Configuring Zeek  
 
 ---
 
@@ -801,7 +801,7 @@ Verify zeek data collection
 
 ---
 
-Installing & Configuring FSF
+Installing and Configuring FSF
 
 ---
 
@@ -851,7 +851,7 @@ Verify fsf service is running as intended
 
 ---
 
-Editing Zeek to work with fsf  
+Editing Zeek to work with FSF  
 
 ---
 
