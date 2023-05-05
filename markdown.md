@@ -206,7 +206,7 @@ Copy SSH Keypair to Containers
 
 ---
 
-Configure Repo Server
+Configure Local Repository Server
 
 ---
 
@@ -396,7 +396,7 @@ Restart Nginx.
 
 ---
 
-Push the created certificate from the repo to all the containers
+Push the created certificate from the local repository to all the containers
 
 ---
 
