@@ -885,12 +885,226 @@ Stop zeek workers and redeploy
 Verify the filescanning is loaded by zeek  
 `curl google.com`  
 `cat /data/zeek/current/files.log`
+`exit`
+
+---
+
+Installing and Configuring Zookeeper as a Cluster  
+
+---
+
+Begin by accessing the pipeline0 container  
+`ssh pipeline0`  
+
+Install kafka and zookeeper 
+`sudo yum install kafka zookeeper -y`  
+
+Create the data directories and set ownership for zookeeper  
+`sudo mkdir -p /data/zookeeper`  
+
+Create a unique id pipeline0
+`sudo -s`  
+`sudo echo '1' >> /data/zookeeper/myid`  
+`exit`  
+`cat /data/zookeeper/myid`
+
+Create a unique id on pipeline1 
+`sudo -s`  
+`sudo echo '2' >> /data/zookeeper/myid`  
+`exit`  
+`cat /data/zookeeper/myid`  
+
+Create a unique id pipeline2
+`sudo -s`  
+`sudo echo '3' >> /data/zookeeper/myid`  
+`exit`  
+`cat /data/zookeeper/myid`
+
+Set ownership for zookeeper  
+`sudo chown -R zookeeper: /data/zookeeper` 
+
+Edit the configuration files for zookeeper  
+`sudo vi /etc/zookeeper/zoo.cfg`  
+
+```
+# The unique id of this broker should be different for each kafka node. Good practice is to match the kafka broker id to the zookeeper server id.
+broker.id=0
+
+# the port in wich kafka should use to communicate with other kafka clients
+port=9092
+# the hostname or IP address in which the server listens on
+listeners=PLAINTEXT://pipeline0:9092
+
+# hostname that will be advertised to producers and consumers
+advertised.listeners=PLAINTEXT://pipeline0:9092
+
+# number of threads used to send network responses
+num.network.threads=3
+
+# number of threads used to make I/O requests
+num.io.threads=8
+socket.send.buffer.bytes=102400
+socket.receive.buffer.bytes=102400
+socket.request.max.bytes=104857600
+
+# where kafka should write its data to
+log.dirs=/data/kafka
+
+# how many partitions and replicas should be generated for topics that are created by other software
+num.partitions=3
+offsets.topic.replication.factor=3
+transaction.state.log.replication.factor=3
+transaction.state.log.min.isr=2
+default.replication.factor = 3
+min.insync.replicas = 2
+
+# how many threads should be used for shutdown and start up
+num.recovery.threads.per.data.dir=3
+
+# how long should we retain logs in kafka
+log.retention.hours=12
+log.retention.bytes=90000000000
+
+# max size of a single log file
+log.segment.bytes=1073741824
+
+# frequency in miliseconds to check if a log needs to be deleted
+log.retention.check.interval.ms=300000
+log.cleaner.enable=false
+
+# will not allow a node to be elected leader if it is not in sync with other nodes. Prevents possible missing messages
+unclean.leader.election.enable=false
+
+# automatically create topics from external software
+auto.create.topics.enable=false
 
 
+# how to connect kafka to zookeeper
+zookeeper.connect=pipeline0:2181,pipeline1:2181,pipeline2:2181
+zookeeper.connection.timeout.ms=30000
+```
+
+Edit the firewall configuration to allow zookeeper  
+`sudo firewall-cmd --add-port={2181,2888,3888}/tcp --permanent`  
+`sudo firewall-cmd --reload` 
+
+Enable and start zookeeper on each node and verify cluster config    
+`sudo systemctl enable zookeeper --now` #pipeline0
+`sudo systemctl enable zookeeper --now` #pipeline1
+`sudo systemctl enable zookeeper --now` #pipeline2
+
+Verify cluster config   
+`exit`
+
+`for host in pipeline{0..2}; do (echo "stats" | nc $host 2181 -q 2); done | grep -e 10.81.139.1 -e Clients -e Mode`
+
+---
+
+Installing and Configuring Kafka as a Cluster  
+
+---
+Begin by accessing the pipeline containers
+`ssh pipeline0`  `ssh pipeline1`  `ssh pipeline2`  
+
+Create the data directories and set ownership for kafka    
+`sudo mkdir -p /data/kafka`  
+`sudo chown -R kafka: /data/kafka` 
+
+Create a backup of the server properties file  
+`sudo cp /etc/kafka/server{.properties,.properties.bk}`
+
+Edit the server properties file   
+`sudo vi /etc/kafka/server.properties`  
+
+```
+# The unique id of this broker should be different for each kafka node. Good practice is to match the kafka broker id to the zookeeper server id.
+broker.id=0
+
+# the port in wich kafka should use to communicate with other kafka clients
+port=9092
+# the hostname or IP address in which the server listens on
+listeners=PLAINTEXT://pipeline0:9092
+
+# hostname that will be advertised to producers and consumers
+advertised.listeners=PLAINTEXT://pipeline0:9092
+
+# number of threads used to send network responses
+num.network.threads=3
+
+# number of threads used to make I/O requests
+num.io.threads=8
+socket.send.buffer.bytes=102400
+socket.receive.buffer.bytes=102400
+socket.request.max.bytes=104857600
+
+# where kafka should write its data to
+log.dirs=/data/kafka
+
+# how many partitions and replicas should be generated for topics that are created by other software
+num.partitions=3
+offsets.topic.replication.factor=3
+transaction.state.log.replication.factor=3
+transaction.state.log.min.isr=2
+default.replication.factor = 3
+min.insync.replicas = 2
+
+# how many threads should be used for shutdown and start up
+num.recovery.threads.per.data.dir=3
+
+# how long should we retain logs in kafka
+log.retention.hours=12
+log.retention.bytes=90000000000
+
+# max size of a single log file
+log.segment.bytes=1073741824
+
+# frequency in miliseconds to check if a log needs to be deleted
+log.retention.check.interval.ms=300000
+log.cleaner.enable=false
+
+# will not allow a node to be elected leader if it is not in sync with other nodes. Prevents possible missing messages
+unclean.leader.election.enable=false
+
+# automatically create topics from external software
+auto.create.topics.enable=false
 
 
+# how to connect kafka to zookeeper
+zookeeper.connect=pipeline0:2181,pipeline1:2181,pipeline2:2181
+zookeeper.connection.timeout.ms=30000
+```
+
+Make a few changes to each file  
+
+```
+
+:3  broker.id=0 (pipe0)
+:3  broker.id=1 (pipe1)
+:3  broker.id=2 (pipe2)
+
+:13 pipeline0(pipe0)
+:13 pipeline1(pipe1)
+:13 pipeline2(pipe2)
+
+:19 pipeline0(pipe0)
+:19 pipeline1(pipe1)
+:19 pipeline2(pipe2)
 
 
+```
+Allow kafka through the firewall  
+`sudo firewall-cmd --add-port=9092/tcp --permanent`  
+`sudo firewall-cmd --reload`  
+
+Enable and start kafka  
+`sudo systemctl enable kafka --now`
+
+Verify kafka is operating as intended on pipeline0  
+`ssh pipeline0`  
+ 
+`sudo /usr/share/kafka/bin/kafka-topics.sh --bootstrap-server pipeline0:9092 --create --topic test --partitions 3 --replication-factor 3`
+
+`sudo /usr/share/kafka/bin/kafka-topics.sh --bootstrap-server pipeline0:9092 --describe --topic test`
 
 
 
