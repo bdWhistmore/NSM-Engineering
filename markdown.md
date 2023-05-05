@@ -413,7 +413,7 @@ Finally, copy the CRT from the repo into the host workstation
 
 ---
 
-Configure the sensor to pull from the repo  
+Configure the sensor to pull from the local repository  
 
 ---
 
