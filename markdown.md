@@ -1106,8 +1106,53 @@ Verify kafka is operating as intended on pipeline0
 
 `sudo /usr/share/kafka/bin/kafka-topics.sh --bootstrap-server pipeline0:9092 --describe --topic test`
 
+Delete the test topic and verify topic was deleted  
 
+`sudo /usr/share/kafka/bin/kafka-topics.sh --bootstrap-server pipeline0:9092 --delete --topic test`
 
+`sudo /usr/share/kafka/bin/kafka-topics.sh --bootstrap-server pipeline0:9092 --list`
 
+Create the zeek raw topic  
+`sudo /usr/share/kafka/bin/kafka-topics.sh --create --zookeeper pipeline0:2181 --replication-factor 3 --partitions 3 --topic zeek-raw`  
+
+`sudo /usr/share/kafka/bin/kafka-topics.sh --bootstrap-server pipeline0:9092 --describe --topic zeek-raw`  
+
+`exit`
+
+---
+
+Verify Kafka and Zeek are working together
+
+---
+
+`ssh sensor`  
+
+Edit the kafka script that will be loaded by zeek  
+`sudo vi /usr/share/zeek/site/scripts/kafka.zeek`
+
+```
+:set nu
+
+:7 "pipeline0:9092,pipeline1:9092,pipeline2:9092"
+```
+
+`sudo vi /usr/share/zeek/site/local.zeek`  
+
+```
+:set nu
+
+:109      @load ./scripts/kafka.zeek
+```
+
+`sudo -u zeek zeekctl deploy`  
+`sudo -u zeek zeekctl status` 
+
+`exit`  
+
+Verify streaming from the pipeline  
+`sudo /usr/share/kafka/bin/kafka-console-consumer.sh --bootstrap-server pipeline0:9092 --topic zeek-raw`  
+
+Generate traffic on the sensor and verify on pipeline0  
+`curl google.com`  
 
 
