@@ -212,17 +212,17 @@ Configure Repo Server
 
 `ssh repo`  
 
-Install the nginx service
+Install the nginx service  
 `sudo yum install nginx -y`  
 
-Unzip the local archive and save it to the nginx fileshare
+Unzip the local archive and save it to the nginx fileshare  
 `sudo unzip ~/all-class-files.zip -d /usr/share/nginx`  
 `sudo mv /usr/share/nginx/all-class-files /usr/share/nginx/fileshare/`
 
-Rename the archive to fileshare
+Rename the archive to fileshare  
 `sudo cp ~/emerging.rules.tar.gz /usr/share/nginx/fileshare/`  
 
-Edit the fileshare config file
+Edit the fileshare config file  
 `sudo cd /usr/share/nginx/fileshare/`
 `sudo vi /etc/nginx/conf.d/fileshare.conf`
 
@@ -237,23 +237,23 @@ server {
 }
 ```
 
-Allow the fileshare through the firewall
+Allow the fileshare through the firewall  
 `sudo firewall-cmd --add-port=8000/  tcp --permanent`  
 `sudo firewall-cmd --reload`  
 `sudo firewall-cmd --list-all`  
 
-Enable and verify the nginx service
+Enable and verify the nginx service  
 `sudo systemctl enable --now nginx`  
 `sudo ss -lnt`  
 
-Install yum-utils to create a local repo
+Install yum-utils to create a local repo  
 `sudo yum install yum-utils -y`  
 `cd /repo && ll`    
 `sudo reposync -l --repoid=extras --download_path=/repo/local-extras`  
 `sudo yum install createrepo -y`  
 `sudo createrepo /repo/local-extras` 
 
-Edit the nginx packages config
+Edit the nginx packages config  
 `sudo vi /etc/nginx/conf.d/packages.conf`  
 
 ```
@@ -267,7 +267,7 @@ server {
 }
 ```
 
-Allow the packages index through the firewall
+Allow the packages index through the firewall  
 `sudo firewall-cmd --add-port=8008/tcp --permanent`  
 `sudo firewall-cmd --reload`  
 `sudo firewall-cmd --list-all`  
@@ -276,7 +276,7 @@ Allow the packages index through the firewall
 `exit`  
 
 
-Verify repo accessibility by opening chrome and browsing to
+Verify repo accessibility by opening chrome and browsing to  
 
 ```
 http://repo:8000 
