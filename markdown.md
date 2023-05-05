@@ -896,25 +896,25 @@ Installing and Configuring Zookeeper as a Cluster
 Begin by accessing the pipeline0 container  
 `ssh pipeline0`  
 
-Install kafka and zookeeper 
+Install kafka and zookeeper    
 `sudo yum install kafka zookeeper -y`  
 
 Create the data directories and set ownership for zookeeper  
 `sudo mkdir -p /data/zookeeper`  
 
-Create a unique id pipeline0
-`sudo -s`  
-`sudo echo '1' >> /data/zookeeper/myid`  
+Create a unique id pipeline0  
+`sudo -s`    
+`sudo echo '1' >> /data/zookeeper/myid`    
 `exit`  
 `cat /data/zookeeper/myid`
 
-Create a unique id on pipeline1 
+Create a unique id on pipeline1  
 `sudo -s`  
 `sudo echo '2' >> /data/zookeeper/myid`  
 `exit`  
 `cat /data/zookeeper/myid`  
 
-Create a unique id pipeline2
+Create a unique id pipeline2  
 `sudo -s`  
 `sudo echo '3' >> /data/zookeeper/myid`  
 `exit`  
@@ -988,10 +988,10 @@ Edit the firewall configuration to allow zookeeper
 `sudo firewall-cmd --add-port={2181,2888,3888}/tcp --permanent`  
 `sudo firewall-cmd --reload` 
 
-Enable and start zookeeper on each node and verify cluster config    
-`sudo systemctl enable zookeeper --now` #pipeline0
-`sudo systemctl enable zookeeper --now` #pipeline1
-`sudo systemctl enable zookeeper --now` #pipeline2
+Enable and start zookeeper on each node and verify cluster config  
+`sudo systemctl enable zookeeper --now` #pipeline0  
+`sudo systemctl enable zookeeper --now` #pipeline1  
+`sudo systemctl enable zookeeper --now` #pipeline2  
 
 Verify cluster config   
 `exit`
@@ -1003,7 +1003,7 @@ Verify cluster config
 Installing and Configuring Kafka as a Cluster  
 
 ---
-Begin by accessing the pipeline containers
+Begin by accessing the pipeline containers  
 `ssh pipeline0`  `ssh pipeline1`  `ssh pipeline2`  
 
 Create the data directories and set ownership for kafka    
@@ -1101,7 +1101,7 @@ Enable and start kafka
 
 Verify kafka is operating as intended on pipeline0  
 `ssh pipeline0`  
- 
+
 `sudo /usr/share/kafka/bin/kafka-topics.sh --bootstrap-server pipeline0:9092 --create --topic test --partitions 3 --replication-factor 3`
 
 `sudo /usr/share/kafka/bin/kafka-topics.sh --bootstrap-server pipeline0:9092 --describe --topic test`
