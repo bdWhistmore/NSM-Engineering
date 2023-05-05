@@ -566,8 +566,14 @@ fi
 ```
 
 Create and edit the eth1 interface script  
+  
+`echo -e '# [monitor]\nDEVICE=eth1\nBOOTPROTO=none\nONBOOT=yes\nNM_CONTROLLED=no\nTYPE=Ethernet\n' | sudo tee /etc/sysconfig/network-scripts/ifcfg-eth1 >/dev/null`  
+
+Verify the file was created correctly  
 `sudo vi /etc/sysconfig/network-scripts/ifcfg-eth1`  
+
 ```
+
 # [monitor]
 DEVICE=eth1
 BOOTPROTO=none
@@ -652,9 +658,15 @@ Install the suricata package from the local repo
 `sudo yum install suricata -y`  
 
 Edit the configuration files for suricata  
-`sudo -s`  
 `cd /etc/suricata`  
-`sudo vi suricata.yaml`  
+
+```
+sed -i '56s/.*/default-log-dir: \/data\/suricata/; 60s/.*/  enabled: no/; 76s/.*/      enabled: no/; 404s/.*/      enabled: no/; 557s/.*/      enabled: no/; 580s/.*/  - interface: eth1/; 582s/.*/    threads: 3/; 981s/.*/run-as:/; 982s/.*/  user:suricata/; 983s/.*/  group:suricata/; 1434s/.*/  set-cpu-affinity: yes/; 1452s/.*/        cpu: [ "0-2" ]/; 1459s/.*/          medium: [ 1 ]/; 1460s/.*/          high: [ 2 ]/; 1461s/.*/          default: "high"/; 1500s/.*/    enabled: no/; 1516s/.*/    enabled: no/; 1521s/.*/    enabled: no/; 1527s/.*/    enabled: no/; 1536s/.*/    enabled: no/' /etc/suricata/suricata.yaml
+```
+
+Verify the following line numbers have changed  
+`sudo vi /etc/suricata/suricata.yaml`  
+
 ```
 :set nu
 
@@ -681,6 +693,9 @@ Edit the configuration files for suricata
 ```
 
 Edit the sysconfig for suricata  
+`sed -i '8s/.*/OPTIONS="--af-packet=eth1 --user suricata --group suricata "/' /etc/sysconfig/suricata`
+
+Verify the file was correctly edited  
 `sudo vi /etc/sysconfig/suricata`  
 ```
 :8      OPTIONS="--af-packet=eth1 --user suricata --group suricata "
@@ -870,9 +885,6 @@ Stop zeek workers and redeploy
 Verify the filescanning is loaded by zeek  
 `curl google.com`  
 `cat /data/zeek/current/files.log`
-
-
-
 
 
 
