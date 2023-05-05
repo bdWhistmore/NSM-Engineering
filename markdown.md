@@ -154,7 +154,7 @@ Copy the edited hosts file to each container excluding repo
 
 `for host in elastic{0..2} pipeline{0..2} kibana sensor; do sudo scp /etc/hosts elastic@$host:~/hosts && ssh -t elastic@$host 'sudo mv ~/hosts /etc/hosts'; done`   
 
-Make the ssh config  
+Create the SSH config  
 
 `sudo vi ~/.ssh/config`  
 
@@ -197,7 +197,7 @@ Copy SSH Keypair to Containers
 
 ---
 
-Configure the Local Repository Server
+Create and Configure the Local Repository Server
 
 ---
 
@@ -404,7 +404,7 @@ Finally, copy the CRT from the repo into the host workstation
 
 ---
 
-Configuring the sensor to pull from the local repository  
+Configuring the Sensor to Utilize the Local Repository  
 
 ---
 
