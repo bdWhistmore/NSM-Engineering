@@ -1386,3 +1386,11 @@ Enable and start elasticsearch
 Verify the cluster is operating as intended  
 `curl elastic0:9200/_cat/nodes`  
 
+---
+
+Installing and Configuring Kibana
+
+---
+
+`ssh kibana`  
+
