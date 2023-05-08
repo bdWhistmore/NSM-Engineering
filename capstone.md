@@ -1,6 +1,6 @@
 
 
-# Elastic NSM Engineer
+# Elastic NSM Engineer Capstone
 
 Begin by listing the available containers  
 `lxc list`  
@@ -116,274 +116,17 @@ GATEWAY=10.81.139.1
 PREFIX=24
 ```
 
-```
-# [repo]
-DEVICE=eth0
-BOOTPROTO=none
-ONBOOT=yes
-HOSTNAME=repo
-NM_CONTROLLED=no
-TYPE=Ethernet
-IPADDR=10.81.139.10
-GATEWAY=10.81.139.1
-PREFIX=24
-```
-
 Verify Container IP  
 
 `lxc list`
 
-Edit the Hosts File:  
-
-`sudo vi /etc/hosts`  
-
-```
-127.0.0.1 localhost
-10.81.139.10 repo
-10.81.139.20 sensor
-10.81.139.30 elastic0
-10.81.139.31 elastic1
-10.81.139.32 elastic2
-10.81.139.40 pipeline0
-10.81.139.41 pipeline1
-10.81.139.42 pipeline2
-10.81.139.50 kibana
-```
-
-Copy the edited hosts file to each container excluding repo
+Copy the hosts file to each container excluding repo
 
 `for host in elastic{0..2} pipeline{0..2} kibana sensor; do sudo scp /etc/hosts elastic@$host:~/hosts && ssh -t elastic@$host 'sudo mv ~/hosts /etc/hosts && sudo systemctl restart network'; done`   
-
-Create the SSH config  
-
-`sudo vi ~/.ssh/config`  
-
-```
-Host repo
-  HostName repo
-  User elastic
-Host sensor
-  HostName sensor
-  User elastic
-Host elastic0
-  HostName elastic0
-  User elastic
-Host elastic1
-  HostName elastic1
-  User elastic
-Host elastic2
-  HostName elastic2
-  User elastic
-Host pipeline0
-  HostName pipeline0
-  User elastic
-Host pipeline1
-  HostName pipeline1
-  User elastic
-Host pipeline2
-  HostName pipeline2
-  User elastic
-Host kibana
-  HostName kibana
-  User elastic
-```
-Generate a SSH Keypair
-
-`ssh-keygen`
 
 Copy SSH Keypair to All Containers Except the Local Repository
 
 `for host in sensor elastic{0..2} pipeline{0..2} kibana; do ssh-copy-id $host; done`
-
----
-
-Create and Configure the Local Repository Server
-
----
-
-`ssh repo`  
-
-Install the nginx service  
-`sudo yum install nginx -y`  
-
-Unzip the local archive and save it to the nginx fileshare  
-`sudo unzip ~/all-class-files.zip -d /usr/share/nginx`  
-`sudo mv /usr/share/nginx/all-class-files /usr/share/nginx/fileshare/`
-
-Rename the archive to fileshare  
-`sudo cp ~/emerging.rules.tar.gz /usr/share/nginx/fileshare/`  
-
-Edit the fileshare config file  
-`sudo cd /usr/share/nginx/fileshare/`
-`sudo vi /etc/nginx/conf.d/fileshare.conf`
-
-```
-server {
-  listen 8000;
-  location / {
-    root /usr/share/nginx/fileshare;
-    autoindex on;
-    index index.html index.htm;
-  }
-}
-```
-
-Allow the fileshare through the firewall  
-`sudo firewall-cmd --add-port=8000/  tcp --permanent`  
-`sudo firewall-cmd --reload`  
-`sudo firewall-cmd --list-all`  
-
-Enable and verify the nginx service  
-`sudo systemctl enable --now nginx`  
-`sudo ss -lnt`  
-
-Install yum-utils to create a local repo  
-`sudo yum install yum-utils -y`  
-`cd /repo && ll`    
-`sudo reposync -l --repoid=extras --download_path=/repo/local-extras`  
-`sudo yum install createrepo -y`  
-`sudo createrepo /repo/local-extras` 
-
-Edit the nginx packages config  
-`sudo vi /etc/nginx/conf.d/packages.conf`  
-
-```
-server {
-  listen 8008;
-  location / {
-    root /repo;
-    autoindex on;
-    index index.html index.htm;
-  }
-}
-```
-
-Allow the packages index through the firewall  
-`sudo firewall-cmd --add-port=8008/tcp --permanent`  
-`sudo firewall-cmd --reload`  
-`sudo firewall-cmd --list-all`  
-`sudo systemctl restart nginx`  
-`^restart^status`    
-`exit`  
-
-
-Verify repo accessibility by opening chrome and browsing to  
-
-```
-http://repo:8000 
-http://repo:8008 
-```
-
----
-
-Secure Repo and Fileshare by Creating a CA & Certs 
-
---- 
-`ssh repo`  
-
-Create a directory for the Certificates to be stored
-
-`mkdir ~/certs`  
-`cd ~/certs`
-
-Generate a local CA Key with 2048 bits, using des3 encryption
-
-`openssl genrsa -des3 -out localCA.key 2048`  
-
-Generate a self-signed x509 certificate for the local CA that will be valid for 1095 days
-
-`openssl req -x509 -new -nodes -key localCA.key -sha256 -days 1095 -out local.CA.crt`  
-
-Generate a key for the repo
-
-`openssl genrsa -out repo.key 2048`  
-
-Generate a certificate signing request (CSR) for the repository
-
-`openssl req -new -key repo.key -out repo.csr`  
-
-Create a file named repo.ext in the ~/certs directory and add the following contents
-
-`sudo vi ~/certs/repo.ext`  
-
-```
-authorityKeyIdentifier=keyid,issuer
-basicConstraints=CA:FALSE
-keyUsage = digitalSignature, nonRepudiation, keyEncipherment, dataEncipherment
-subjectAltName = @alt_names
-
-[alt_names]
-DNS.1 = repo
-IP.1 = 10.81.139.10
-```
-
-
-Use the repo.ext file to sign the CSR and create a certificate for the repository 
-
-`openssl x509 -req -in repo.csr -CA localCA.crt -CAkey localCA.key -CAcreateserial -out repo.crt -days 365 -sha256 -extfile repo.ext`  
-
-
-Move the keys so Nginx has access to them 
-
-`sudo mv repo.crt /etc/nginx/`  
-`sudo mv repo.key /etc/nginx/`  
-
-`cd /etc/nginx/conf.d/`  
-`sudo curl -LO http://repo:8000/nginx/proxy.conf`  
-`sudo vi /etc/nginx/nginx.conf`
-
-```
-:set nu
-:39
-
-Comment out the listener on port 80. 
-
-  
-    38     server {}
-    39 #        listen       80;
-    40 #        listen       [::]:80;
-    41 #        server_name  _;
-    42         root         /usr/share/nginx/html;
-```
-
-`sudo vi /etc/nginx/conf.d/packages.conf`  
-```
-listen 127.0.0.1:8008
-```
-
-`sudo vi /etc/nginx/conf.d/fileshare.conf`
-```
-listen 127.0.0.1:8000
-```
-Allow access through the firewall  
-
-`sudo firewall-cmd --add-port={80,443}/tcp --permanent`  
-`sudo firewall-cmd --remove-port={8000,8008}/tcp --permanent`  
-`sudo firewall-cmd --reload`  
-`sudo firewall-cmd --list-all`  
-
-`exit` 
-
----
-
-Update the Nginx proxy configuration
-
----
-
-`ssh repo`  
-
-`sudo vi /etc/nginx/conf.d/proxy.conf`
-```
-     28   location /packages/ 
-     29     proxy_pass http://127.0.0.1:8008/;
-```
-
-Restart Nginx.  
-`systemctl restart nginx`  
-`^restart^status`  
-`ss -lnt`  
-`exit`
-
 
 ---
 
@@ -409,16 +152,11 @@ Configuring the Sensor to Utilize the Local Repository
 ---
 
 `ssh sensor`  
-`sudo yum list zeek`  
-`mkdir ~/archive`  
-`ll /etc/yum.repos.d`  
 
 Move the local repos to the previously created archive directory  
-
+`mkdir ~/archive`   
 `sudo mv /etc/yum.repos.d/* ~/archive/`  
 `cd /etc/yum.repos.d/`  
-
-Create the local.repo file
 `sudo vi /etc/yum.repos.d/local.repo` 
 
 ``` 
@@ -464,17 +202,11 @@ Reload the yum cache
 `sudo yum makecache fast`  
 
 
-`exit`
-
 ---
 
 Configure the rest of the containers to pull from the local repository  
 
 ---
-
-Connect to the sensor to begin pushing the files to the other containers  
-
-`ssh sensor`
 
 Copy the updated local.repo to the archive directory.  
 
@@ -494,12 +226,6 @@ Configuring the Sensor Monitor Interface
 
 Install ethtool and its dependencies  
 `sudo yum install ethtool -y`  
-
-Show interface informtion and begin configuring eth1 as the monitor interface  
-`ip a`  
-`sudo ethtool -k eth1`  
-
-Pull the interface bash script from the repo  
 `cd ~/`  
 `sudo curl -LO https://repo/fileshare/interface.sh`  
 
@@ -520,17 +246,8 @@ exit 0
 ```
 Make the file executable  
 `sudo chmod +x interface.sh`  
-
-Run the script.  
 `sudo ./interface.sh eth1`  
-
-Verify the changes were made  
-`sudo ethtool -k eth1`
-
-Run the script on startup  
 `sudo vi /sbin/ifup-local`  
-
-Update the file to add in the ethtool persistence
 
 ```
 #!/bin/bash
@@ -555,8 +272,6 @@ fi
 
 Make the ethtool persistence file executable  
 `sudo chmod +x /sbin/ifup-local`  
-
-Add a reference to the created script to run on startup  
 `sudo vi /etc/sysconfig/network-scripts/ifup`  
 
 ```
@@ -565,32 +280,10 @@ if [ -x /sbin/ifup-local ]; then
 fi
 ```
 
-Create and edit the eth1 interface script  
+Create the eth1 interface
   
 `echo -e '# [monitor]\nDEVICE=eth1\nBOOTPROTO=none\nONBOOT=yes\nNM_CONTROLLED=no\nTYPE=Ethernet\n' | sudo tee /etc/sysconfig/network-scripts/ifcfg-eth1 >/dev/null`  
-
-Verify the file was created correctly  
-`sudo vi /etc/sysconfig/network-scripts/ifcfg-eth1`  
-
-```
-
-# [monitor]
-DEVICE=eth1
-BOOTPROTO=none
-ONBOOT=yes
-NM_CONTROLLED=no
-TYPE=Ethernet
-```
-
-Reboot the networking interfaces and verify changes  
 `sudo systemctl restart network`  
-`sudo ethtool -k eth1`  
-`ip a`  
-
-Test the capture interface  
-`sudo tcpdump -nn -i eth1`  
-`sudo tcpdump -nn -i eth1 '!port 22'`  
-`exit`  
 
 ---
 
@@ -598,12 +291,11 @@ Installing and Configuring Stenographer
 
 ---
 
-Install the stenographer package from the local repo  
 `ssh sensor`  
-`sudo yum install stenographer -y`  
-`sudo yum install which`  
 
-Edit the configuration file for stenographer  
+Install the stenographer package from the local repo  
+
+`sudo yum install stenographer -y`   
 `cd /etc/stenographer`  
 `sudo vi config`  
 
@@ -628,14 +320,8 @@ Edit the configuration file for stenographer
 
 Create the data directories for data storage  
 `sudo mkdir -p /data/stenographer/{index,packets}`  
-
-Change the ownership of the stenographer data directory to allow writing  
 `sudo chown -R stenographer:stenographer /data/stenographer `
-
-Execute the stenokeys script to generate a key-pair  
 `sudo stenokeys.sh stenographer stenographer`  
-
-Enable and start stenographer  
 `sudo systemctl enable stenographer --now`  
 `sudo systemctl status stenographer`  
 
@@ -652,66 +338,23 @@ Installing and Configuring Suricata
 
 ---
 
-Install the suricata package from the local repo  
 `ssh sensor`  
+
+Install the suricata package from the local repo  
 `cd ~/`  
 `sudo yum install suricata -y`  
-
-Edit the configuration files for suricata  
 `cd /etc/suricata`  
 
 ```
 sed -i '56s/.*/default-log-dir: \/data\/suricata/; 60s/.*/  enabled: no/; 76s/.*/      enabled: no/; 404s/.*/      enabled: no/; 557s/.*/      enabled: no/; 580s/.*/  - interface: eth1/; 582s/.*/    threads: 3/; 981s/.*/run-as:/; 982s/.*/  user:suricata/; 983s/.*/  group:suricata/; 1434s/.*/  set-cpu-affinity: yes/; 1452s/.*/        cpu: [ "0-2" ]/; 1459s/.*/          medium: [ 1 ]/; 1460s/.*/          high: [ 2 ]/; 1461s/.*/          default: "high"/; 1500s/.*/    enabled: no/; 1516s/.*/    enabled: no/; 1521s/.*/    enabled: no/; 1527s/.*/    enabled: no/; 1536s/.*/    enabled: no/' /etc/suricata/suricata.yaml
 ```
 
-Verify the following line numbers have changed  
-`sudo vi /etc/suricata/suricata.yaml`  
-
-```
-:set nu
-
-:56     default-log-dir: /data/suricata
-:60     enabled: no
-:76     enabled: no
-:404    enabled: no
-:557    enabled: no
-:580    - interface: eth1
-:582    threads: 3
-:981    run-as:
-:982    user:suricata
-:983    group:suricata
-:1434   set-cpu-affinity: yes
-:1452   cpu: [ "0-2" ]
-:1459   medium: [ 1 ]
-:1460   high: [ 2 ]
-:1461   default: "high"
-:1500   enabled: no
-:1516   enabled: no
-:1521   enabled: no
-:1527   enabled: no
-:1536   enabled: no
-```
-
 Edit the sysconfig for suricata  
-`sed -i '8s/.*/OPTIONS="--af-packet=eth1 --user suricata --group suricata "/' /etc/sysconfig/suricata`
-
-Verify the file was correctly edited  
-`sudo vi /etc/sysconfig/suricata`  
-```
-:8      OPTIONS="--af-packet=eth1 --user suricata --group suricata "
-```
-
-Point suricata to pull rulesets from the repo  
-`sudo suricata-update add-source emergingthreats https://repo/fileshare/emerging.threats.tar.gz`
-
-Update suricata to refresh the loaded ruleset  
+`sed -i '8s/.*/OPTIONS="--af-packet=eth1 --user suricata --group suricata "/' /etc/sysconfig/suricata`  
+`sudo suricata-update add-source emergingthreats https://repo/fileshare/emerging.threats.tar.gz` 
 `sudo suricata-update`  
-
-Make the suricata data directories and assign permissions  
 `sudo mkdir -p /data/suricata`  
 `sudo chown -R suricata:suricata /data/suricata`  
-
-Enable and start suricata  
 `sudo systemctl enable suricata --now`   
 `sudo systemctl status suricata`  
 
@@ -733,8 +376,6 @@ Install the Zeek package & Dependencies from the local repo
 `sudo yum install zeek -y`  
 `sudo yum install zeek-plugin-af_packet -y`  
 `sudo yum install zeek-plugin-kafka -y`  
-
-Edit the configuration files for Zeek  
 `cd /etc/zeek`  
 `sudo vi /etc/zeek/zeekctl.cfg`  
 ```
@@ -744,7 +385,7 @@ Edit the configuration files for Zeek
 :68     lb_custom.InterfacePrefix=af_packet::   #newline
 
 ``` 
-`lscpu -e`  
+
 `sudo vi /etc/zeek/node.cfg`  
 
 ```
@@ -768,12 +409,8 @@ Edit the configuration files for Zeek
 
 Continue creating and editing config files for zeek  
 `sudo mkdir /usr/share/zeek/site/scripts`  
-`cd /usr/share/zeek/site/scripts`  
-
-Pull down extra configuration files from the local repo  
+`cd /usr/share/zeek/site/scripts`   
 `url_base="https://repo/fileshare/zeek/"; files=("afpacket.zeek" "extension.zeek" "extract-files.zeek" "fsf.zeek" "json.zeek" "kafka.zeek"); for file in "${files[@]}"; do sudo curl -LO "${url_base}${file}"; done`  
-
-Edit the local.zeek file  
 `sudo vi /usr/share/zeek/site/local.zeek` 
 
 ```
@@ -793,19 +430,15 @@ Continue creating and editing config files for zeek
 `chown -R zeek:zeek /usr/bin/zeek`  
 `chown -R zeek:zeek /usr/bin/capstats`  
 `chown -R zeek:zeek /var/spool/zeek`  
-
-Set capabilities of the zeek user  
 `sudo /sbin/setcap cap_net_raw,cap_net_admin=eip /usr/bin/zeek`  
 `sudo /sbin/setcap cap_net_raw,cap_net_admin=eip /usr/bin/capstats`  
 `sudo getcap /usr/bin/zeek`  
-`sudo getcap /usr/bin/capstats`  
-
-Deploy zeek as a zeek user  
+`sudo getcap /usr/bin/capstats`   
 `sudo -u zeek zeekctl deploy`  
-`sudo -u zeek zeekctl status`
-
-Verify zeek data collection  
+`sudo -u zeek zeekctl status`  
 `ll /data/zeek/current/`  
+
+
 `exit`  
 
 ---
@@ -818,8 +451,6 @@ Installing and Configuring FSF
 
 Install the fsf package from the local repo   
 `sudo yum install fsf -y`
-
-Edit the configuration files for fsf  
 `sudo vi /opt/fsf/fsf-server/conf/config.py`  
 
 ```
@@ -835,12 +466,8 @@ Edit the configuration files for fsf
 ```
 
 Create the directories for fsf to access  
-`sudo mkdir -p /data/fsf/archive`
-
-Change the permissions for the directories  
+`sudo mkdir -p /data/fsf/archive` 
 `sudo chown -R fsf: /data/fsf`
-
-Edit the fsf client config  
 `sudo vi /opt/fsf/fsf-client/conf/config.py`  
 
 ```
@@ -897,6 +524,8 @@ Installing and Configuring Zookeeper as a Cluster
 
 Begin by accessing the pipeline0 container  
 `ssh pipeline0`  
+`ssh pipeline1`  
+`ssh pipeline2`  
 
 Install kafka and zookeeper    
 `sudo yum install kafka zookeeper -y`  
@@ -924,8 +553,6 @@ Create a unique id pipeline2
 
 Set ownership for zookeeper  
 `sudo chown -R zookeeper: /data/zookeeper` 
-
-Edit the configuration files for zookeeper  
 `sudo vi /etc/zookeeper/zoo.cfg`  
 
 ```
@@ -986,14 +613,10 @@ zookeeper.connect=pipeline0:2181,pipeline1:2181,pipeline2:2181
 zookeeper.connection.timeout.ms=30000
 ```
 
-Edit the firewall configuration to allow zookeeper  
+Edit the firewall configuration to allow zookeeper on pipeline0,1,2  
 `sudo firewall-cmd --add-port={2181,2888,3888}/tcp --permanent`  
-`sudo firewall-cmd --reload` 
-
-Enable and start zookeeper on each node and verify cluster config  
-`sudo systemctl enable zookeeper --now` #pipeline0  
-`sudo systemctl enable zookeeper --now` #pipeline1  
-`sudo systemctl enable zookeeper --now` #pipeline2  
+`sudo firewall-cmd --reload`  
+`sudo systemctl enable zookeeper --now`
 
 Verify cluster config   
 `exit`
@@ -1013,11 +636,7 @@ Begin by accessing the pipeline containers
 Create the data directories and set ownership for kafka    
 `sudo mkdir -p /data/kafka`  
 `sudo chown -R kafka: /data/kafka` 
-
-Create a backup of the server properties file  
-`sudo cp /etc/kafka/server{.properties,.properties.bk}`
-
-Edit the server properties file   
+`sudo cp /etc/kafka/server{.properties,.properties.bk}` 
 `sudo vi /etc/kafka/server.properties`  
 
 ```
@@ -1099,8 +718,6 @@ Make a few changes to each file
 Allow kafka through the firewall  
 `sudo firewall-cmd --add-port=9092/tcp --permanent`  
 `sudo firewall-cmd --reload`  
-
-Enable and start kafka  
 `sudo systemctl enable kafka --now`
 
 Verify kafka is operating as intended on pipeline0  
@@ -1209,82 +826,6 @@ Verify messages are added to suricata-raw and fsf-raw on pipeline0
 
 ---
 
-Installing and Configuring Elasticsearch as Single Node
-
----
-
-`ssh elastic0`   
-
-Begin by installing elasticsearch  
-`sudo yum install elasticsearch -y`  
-
-Create a backup of the elasticsearch configuration file  
-`sudo mv /etc/elasticsearch/elasticsearch{.yml,.yml.bk}`  
-
-Curl the elasticsearch configuration file from the local repository  
-`cd ~`  
-`sudo curl -LO https://repo/fileshare/elasticsearch/elasticsearch.yml`  
-
-Edit the downloaded configuration file  
-`sudo vi elasticsearch.yml`  
-```
-:set nu
-
-node.name:  sensor1
-path.data: /data/elasticsearch
-path.logs: /var/log/elasticsearch
-bootstrap.memory_lock: true
-http.port:9200
-network.host: _local:ipv4_
-discovery.type single-node
-
-```
-
-Move the edited config to the elastic directory and change the perms
-`sudo mv ~/elasticsearch.yml /etc/elasticsearch/elasticsearch.yml`  
-
-`sudo chmod 640 /etc/elasticsearch/elasticsearch.yml`  
-
-Create a memory override file to cease memoryswapping by elastic  
-`sudo mkdir /usr/lib/systemd/system/elasticsearch.service.d`  
-
-`sudo chmod 755 /usr/lib/systemd/system/elasticsearch.service.d`
-
-Create and edit the memory override file  
-`sudo vi /usr/lib/systemd/system/elasticsearch.service.d/override.conf`
-
-```
-[Service]
-LimitMEMLOCK=infinity
-```
-
-Change the permissions on the override config file  
-`sudo chmod 644 /usr/lib/systemd/system/elasticsearch.service.d/override.conf`
-
-`sudo systemctl daemon-reload`  
-
-Create and edit the configuration file for the elastic heap size  
-`sudo vi /etc/elasticsearch/jvm.options.d/jvm_override.conf`  
-
-```
--Xms2g
--Xmx2g
-```
-
-Create and modify the data directory  
-`sudo mkdir -p /data/elasticsearch`  
-`sudo chown -R elasticsearch: /data/elasticsearch`  
-`sudo chmod 755 /data/elasticsearch`  
-
-Edit the firewall configuration to allow elasticsearch  
-`sudo firewall-cmd --add-port={9200,9300}/tcp --permanent`  
-`sudo firewall-cmd --reload`  
-
-Enable and start elasticsearch  
-`sudo systemctl enable elasticsearch --now`  
-
----
-
 Installing and Configuring Elasticsearch as a Cluster
 
 ---
@@ -1295,15 +836,9 @@ Installing and Configuring Elasticsearch as a Cluster
 
 Begin by installing elasticsearch  
 `sudo yum install elasticsearch -y`  
-
-Create a backup of the elasticsearch configuration file  
 `sudo mv /etc/elasticsearch/elasticsearch{.yml,.yml.bk}`  
-
-Curl the elasticsearch configuration file from the local repository  
 `cd ~`  
-`sudo curl -LO https://repo/fileshare/elasticsearch/elasticsearch.yml`  
-
-Edit the downloaded configuration file  
+`sudo curl -LO https://repo/fileshare/elasticsearch/elasticsearch.yml`   
 `sudo vi elasticsearch.yml`  
 
 ```
@@ -1344,26 +879,17 @@ Move the edited config to the elastic directory and change the perms
 `sudo mv ~/elasticsearch.yml /etc/elasticsearch/elasticsearch.yml`  
 `sudo chown -R elasticsearch: /etc/elasticsearch/`  
 `sudo chmod 640 /etc/elasticsearch/elasticsearch.yml`  
-
-Create a memory override file to cease memoryswapping by elastic  
 `sudo mkdir /usr/lib/systemd/system/elasticsearch.service.d`  
-
-`sudo chmod 755 /usr/lib/systemd/system/elasticsearch.service.d`
-
-Create and edit the memory override file  
-`sudo vi /usr/lib/systemd/system/elasticsearch.service.d/override.conf`
+`sudo chmod 755 /usr/lib/systemd/system/elasticsearch.service.d`  
+`sudo vi /usr/lib/systemd/system/elasticsearch.service.d/override.conf`  
 
 ```
 [Service]
 LimitMEMLOCK=infinity
 ```
 
-Change the permissions on the override config file  
-`sudo chmod 644 /usr/lib/systemd/system/elasticsearch.service.d/override.conf`
-
+`sudo chmod 644 /usr/lib/systemd/system/elasticsearch.service.d/override.conf`  
 `sudo systemctl daemon-reload`  
-
-Create and edit the configuration file for the elastic heap size  
 `sudo vi /etc/elasticsearch/jvm.options.d/jvm_override.conf`  
 
 ```
@@ -1375,12 +901,8 @@ Create and modify the data directory
 `sudo mkdir -p /data/elasticsearch`  
 `sudo chown -R elasticsearch: /data/elasticsearch`  
 `sudo chmod 755 /data/elasticsearch`  
-
-Edit the firewall configuration to allow elasticsearch  
 `sudo firewall-cmd --add-port={9200,9300}/tcp --permanent`  
 `sudo firewall-cmd --reload`  
-
-Enable and start elasticsearch  
 `sudo systemctl enable elasticsearch --now`  
 
 Verify the cluster is operating as intended  
