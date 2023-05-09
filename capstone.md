@@ -1,14 +1,10 @@
 # Elastic NSM Engineer Capstone
 
-Begin by listing the available containers  
-`lxc list`  
-`lxc start --all`
 
-Connect to each containerized instance and begin network configuration.
+`lxc start --all`
 
 `for host in elastic{0..2} pipeline{0..2} kibana sensor; do sudo lxc exec -t $host -- /bin/bash -c "vi /etc/sysconfig/network-scripts/ifcfg-eth0 && systemctl restart network"; done`
 
-The following network configurations should be added
 
 ```
 # [elastic0]
@@ -114,15 +110,9 @@ GATEWAY=10.81.139.1
 PREFIX=24
 ```
 
-Verify Container IP  
-
 `lxc list`
 
-Copy the hosts file to each container excluding repo
-
 `for host in elastic{0..2} pipeline{0..2} kibana sensor; do sudo scp /etc/hosts elastic@$host:~/hosts && ssh -t elastic@$host 'sudo mv ~/hosts /etc/hosts && sudo systemctl restart network'; done`   
-
-Copy SSH Keypair to All Containers Except the Local Repository
 
 `for host in sensor elastic{0..2} pipeline{0..2} kibana; do ssh-copy-id $host; done`
 
@@ -134,11 +124,9 @@ Push the created certificate from the local repository to all the containers
 
 `ssh repo`  
 
-For each host, copy the local cert from the repo home directory to all the containers and update the ca-trust
 
 `for host in elastic{0..2} pipeline{0..2} kibana sensor; do sudo scp ~/certs/localCA.crt elastic@$host:~/localCA.crt && ssh -t elastic@$host 'sudo mv ~/localCA.crt /etc/pki/ca-trust/source/anchors/ && sudo update-ca-trust'; done`  
 
-Finally, copy the CRT from the repo into the host workstation
 
 `exit`  
 `sudo scp elastic@repo:/home/elastic/certs/localCA.crt ~/localCA.crt`  
@@ -150,12 +138,8 @@ Configuring the Sensor to Utilize the Local Repository
 ---
 
 `ssh sensor`  
-
-Move the local repos to the previously created archive directory  
-`mkdir ~/archive`   
-`sudo mv /etc/yum.repos.d/* ~/archive/`  
-`cd /etc/yum.repos.d/`  
-`sudo vi /etc/yum.repos.d/local.repo` 
+ 
+`mkdir ~/archive && sudo mv /etc/yum.repos.d/* ~/archive/ && sudo vi /etc/yum.repos.d/local.repo`    
 
 ``` 
 [local-base]
@@ -195,10 +179,8 @@ enabled=1
 gpgcheck=0
 
 ```
-Reload the yum cache
 
 `sudo yum makecache fast`  
-
 
 ---
 
@@ -206,15 +188,11 @@ Configure the rest of the containers to pull from the local repository
 
 ---
 
-Copy the updated local.repo to the archive directory.  
 
 `cp /etc/yum.repos.d/local.repo ~/archive/`
 
-For each host, move the files from the yum.repos.d directory to an archive, and then copy the local.repo file from the sensor's /etc/yum.repos.d/ to all the containers excluding the repo, and then update the yumcache to read the new files. make sure your local.repo file is updated in the sensors /etc/yum.repos.d directory if you want to use this command:
-
 `for host in elastic{0..2} pipeline{0..2} kibana; do ssh -t elastic@$host 'sudo mkdir ~/archive && sudo mv /etc/yum.repos.d/* ~/archive/' && sudo scp /etc/yum.repos.d/local.repo elastic@$host:~/local.repo && ssh -t elastic@$host 'sudo mv ~/local.repo /etc/yum.repos.d/local.repo && sudo yum makecache fast' ; done`
 
-`exit`
 
 ---
 
@@ -223,30 +201,8 @@ Configuring the Sensor Monitor Interface
 ---
 
 Install ethtool and its dependencies  
-`sudo yum install ethtool -y`  
-`cd ~/`  
-`sudo curl -LO https://repo/fileshare/interface.sh`  
-
-```
-#!/bin/bash
-
-for var in $@
-do
-  echo "turning off offloading on $var"
-  ethtool -K $var tso off gro off lro off gso off rx off tx off sg off rxvlan off txvlan off
-  ethtool -N $var rx-flow-hash udp4 sdfn
-  ethtool -N $var rx-flow-hash udp6 sdfn
-  ethtool -C $var adaptive-rx off
-  ethtool -C $var rx-usecs 1000
-  ethtool -G $var rx 4096
-done
-exit 0
-```
-Make the file executable  
-`sudo chmod +x interface.sh`  
-`sudo ./interface.sh eth1`  
-`sudo vi /sbin/ifup-local`  
-
+`sudo yum install ethtool -y && cd ~/ && sudo curl -LO https://repo/fileshare/interface.sh && sudo chmod +x interface.sh && sudo ./interface.sh eth1 && sudo vi /sbin/ifup-local`    
+  
 ```
 #!/bin/bash
 if [[ "$1" == "eth1" ]]
@@ -268,9 +224,7 @@ done
 fi
 ```
 
-Make the ethtool persistence file executable  
-`sudo chmod +x /sbin/ifup-local`  
-`sudo vi /etc/sysconfig/network-scripts/ifup`  
+`sudo chmod +x /sbin/ifup-local && sudo vi /etc/sysconfig/network-scripts/ifup`  
 
 ```
 if [ -x /sbin/ifup-local ]; then
@@ -278,10 +232,8 @@ if [ -x /sbin/ifup-local ]; then
 fi
 ```
 
-Create the eth1 interface
-  
-`echo -e '# [monitor]\nDEVICE=eth1\nBOOTPROTO=none\nONBOOT=yes\nNM_CONTROLLED=no\nTYPE=Ethernet\n' | sudo tee /etc/sysconfig/network-scripts/ifcfg-eth1 >/dev/null`  
-`sudo systemctl restart network`  
+Create the interface and verify changes  
+`echo -e '# [monitor]\nDEVICE=eth1\nBOOTPROTO=none\nONBOOT=yes\nNM_CONTROLLED=no\nTYPE=Ethernet\n' | sudo tee /etc/sysconfig/network-scripts/ifcfg-eth1 >/dev/null && sudo systemctl restart network && ip a`  
 
 ---
 
@@ -289,13 +241,7 @@ Installing and Configuring Stenographer
 
 ---
 
-`ssh sensor`  
-
-Install the stenographer package from the local repo  
-
-`sudo yum install stenographer -y`   
-`cd /etc/stenographer`  
-`sudo vi config`  
+`sudo yum install stenographer -y && cd /etc/stenographer && sudo vi config`  
 
 ```
 {
@@ -316,7 +262,6 @@ Install the stenographer package from the local repo
 
 ```
 
-Create the data directories for data storage  
 `sudo mkdir -p /data/stenographer/{index,packets}`  
 `sudo chown -R stenographer:stenographer /data/stenographer `
 `sudo stenokeys.sh stenographer stenographer`  
@@ -336,18 +281,12 @@ Installing and Configuring Suricata
 
 ---
 
-`ssh sensor`  
-
-Install the suricata package from the local repo  
-`cd ~/`  
-`sudo yum install suricata -y`  
-`cd /etc/suricata`  
+`sudo yum install suricata -y && cd /etc/suricata`  
 
 ```
 sed -i '56s/.*/default-log-dir: \/data\/suricata/; 60s/.*/  enabled: no/; 76s/.*/      enabled: no/; 404s/.*/      enabled: no/; 557s/.*/      enabled: no/; 580s/.*/  - interface: eth1/; 582s/.*/    threads: 3/; 981s/.*/run-as:/; 982s/.*/  user:suricata/; 983s/.*/  group:suricata/; 1434s/.*/  set-cpu-affinity: yes/; 1452s/.*/        cpu: [ "0-2" ]/; 1459s/.*/          medium: [ 1 ]/; 1460s/.*/          high: [ 2 ]/; 1461s/.*/          default: "high"/; 1500s/.*/    enabled: no/; 1516s/.*/    enabled: no/; 1521s/.*/    enabled: no/; 1527s/.*/    enabled: no/; 1536s/.*/    enabled: no/' /etc/suricata/suricata.yaml
 ```
 
-Edit the sysconfig for suricata  
 `sed -i '8s/.*/OPTIONS="--af-packet=eth1 --user suricata --group suricata "/' /etc/sysconfig/suricata`  
 `sudo suricata-update add-source emergingthreats https://repo/fileshare/emerging.threats.tar.gz` 
 `sudo suricata-update`  
@@ -360,22 +299,12 @@ Verify suricata is operating as intended
 `curl google.com`  
 `cat /data/suricata/eve.json`
 
-`exit`
-
 ---
 
 Installing and Configuring Zeek  
 
 ---
-
-Install the Zeek package & Dependencies from the local repo  
-`ssh sensor`  
-`cd ~/`  
-`sudo yum install zeek -y`  
-`sudo yum install zeek-plugin-af_packet -y`  
-`sudo yum install zeek-plugin-kafka -y`  
-`cd /etc/zeek`  
-`sudo vi /etc/zeek/zeekctl.cfg`  
+`sudo yum install zeek -y && sudo yum install zeek-plugin-af_packet -y && sudo yum install zeek-plugin-kafka -y && cd /etc/zeek && sudo vi /etc/zeek/zeekctl.cfg`  
 ```
 :set nu
 
@@ -384,30 +313,54 @@ Install the Zeek package & Dependencies from the local repo
 
 ``` 
 
-`sudo vi /etc/zeek/node.cfg`  
+`sudo mv /etc/zeek/node.cfg /etc/zeek/node.cfg.bk && sudo vi /etc/zeek/node.cfg`  
 
 ```
-:set nu
+# Example ZeekControl node configuration.
+#
+# This example has a standalone node ready to go except for possibly changing
+# the sniffing interface.
 
-:8  #
-:9  #
-:10 #
-:11 #
+# This is a complete standalone configuration.  Most likely you will
+# only need to change the interface.
+#[zeek]
+#type=standalone
+#host=localhost
+#interface=eth0
 
-:16-31 [Remove #]
+## Below is an example clustered configuration. If you use this,
+## remove the [zeek] node above.
 
-:23   pin_cpus=1                #newline
-:32   interface=eth1
-:33   lb_method=custom          #newline
-:34   lb_procs=2                #newline
-:35   pin_cpus=2,3              #newline
-:36   env_vars=fanout_id=77     #newline
+[logger]
+type=logger
+host=localhost
+
+[manager]
+type=manager
+host=localhost
+pin_cpus=1
+
+[proxy-1]
+type=proxy
+host=localhost
+
+[worker-1]
+type=worker
+host=localhost
+interface=eth1
+lb_method=custom
+lb_procs=2
+pin_cpus=2,3
+env_vars=fanout_id=77
+#
+#[worker-2]
+#type=worker
+#host=localhost
+#interface=eth0
 
 ```
 
-Continue creating and editing config files for zeek  
-`sudo mkdir /usr/share/zeek/site/scripts`  
-`cd /usr/share/zeek/site/scripts`   
+`sudo mkdir /usr/share/zeek/site/scripts && cd /usr/share/zeek/site/scripts`   
 `url_base="https://repo/fileshare/zeek/"; files=("afpacket.zeek" "extension.zeek" "extract-files.zeek" "fsf.zeek" "json.zeek" "kafka.zeek"); for file in "${files[@]}"; do sudo curl -LO "${url_base}${file}"; done`  
 `sudo vi /usr/share/zeek/site/local.zeek` 
 
@@ -420,46 +373,37 @@ Continue creating and editing config files for zeek
 
 ```
 
-Continue creating and editing config files for zeek  
-`sudo mkdir /data/zeek`  
-`chown -R zeek:zeek /data/zeek`  
-`chown -R zeek:zeek /etc/zeek`  
-`chown -R zeek:zeek /usr/share/zeek`  
-`chown -R zeek:zeek /usr/bin/zeek`  
-`chown -R zeek:zeek /usr/bin/capstats`  
-`chown -R zeek:zeek /var/spool/zeek`  
-`sudo /sbin/setcap cap_net_raw,cap_net_admin=eip /usr/bin/zeek`  
-`sudo /sbin/setcap cap_net_raw,cap_net_admin=eip /usr/bin/capstats`  
-`sudo getcap /usr/bin/zeek`  
-`sudo getcap /usr/bin/capstats`   
-`sudo -u zeek zeekctl deploy`  
-`sudo -u zeek zeekctl status`  
-`ll /data/zeek/current/`  
+`sudo mkdir /data/zeek && chown -R zeek:zeek /data/zeek && chown -R zeek:zeek /etc/zeek && chown -R zeek:zeek /usr/share/zeek && chown -R zeek:zeek /usr/bin/zeek && chown -R zeek:zeek /usr/bin/capstats && chown -R zeek:zeek /var/spool/zeek && sudo /sbin/setcap cap_net_raw,cap_net_admin=eip /usr/bin/zeek && sudo /sbin/setcap cap_net_raw,cap_net_admin=eip /usr/bin/capstats && sudo getcap /usr/bin/zeek && sudo getcap /usr/bin/capstats && sudo -u zeek zeekctl deploy && sudo -u zeek zeekctl status && ll /data/zeek/current/`  
 
-
-`exit`  
 
 ---
 
 Installing and Configuring FSF
 
 ---
-
-`ssh sensor`  
-
-Install the fsf package from the local repo   
-`sudo yum install fsf -y`
-`sudo vi /opt/fsf/fsf-server/conf/config.py`  
+ 
+`sudo yum install fsf -y && sudo vi /opt/fsf/fsf-server/conf/config.py`  
 
 ```
-:set nu
+!/usr/bin/env python
+#
+# Basic configuration attributes for scanner. Used as default
+# unless the user overrides them.
+#
 
-:9      'LOG_PATH' : '/data/fsf'
-:10     'YARA_PATH' : '/var/lib/yara-rules/rules.yara
-:11     'PID_PATH' : '/run/fsf/fsf.pid`
-:12     'EXPORT_PATH' : '/data/fsf/archive'
-:15     ['rockout]
-:18     { 'IP_ADDRESS' : "localhost", 'PORT' : 5800 }
+import socket
+
+SCANNER_CONFIG = { 'LOG_PATH' : '/data/fsf',
+                   'YARA_PATH' : '/var/lib/yara-rules/rules.yara',
+                   'PID_PATH' : '/run/fsf/fsf.pid',
+                   'EXPORT_PATH' : '/data/fsf/archive',
+                   'TIMEOUT' : 60,
+                   'MAX_DEPTH' : 10,
+                   'ACTIVE_LOGGING_MODULES' : ['rockout'],
+                   }
+
+SERVER_CONFIG = { 'IP_ADDRESS' : "localhost",
+                  'PORT' : 5800 }
 
 ```
 
