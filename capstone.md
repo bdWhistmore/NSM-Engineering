@@ -848,3 +848,92 @@ Create and modify the data directory
 Verify the cluster is operating as intended  
 `curl elastic0:9200/_cat/nodes`  
 
+---
+
+Installing and Configuring Kibana
+
+---
+
+`ssh kibana`  
+
+Begin by installing kibana  
+`sudo yum install kibana -y`  
+
+Create a backup of the configuration file  
+`sudo mv /etc/kibana/kibana{.yml,.yml.bk}`  
+
+Edit the configuration file for kibana  
+`sudo vi /etc/kibana/kibana.yml`  
+
+sudo sh -c "echo 'server.port: 5601\nserver.host: localhost\nserver.name: kibana\nelasticsearch.hosts: [\"http://elastic0:9200\",\"http://elastic1:9200\",\"http://elastic:9200\"]' >> /etc/kibana/kibana.yml"
+
+```
+server.port: 5601
+server.host: localhost
+server.name: kibana
+elasticsearch.hosts: ["http://elastic0:9200","http://elastic1:9200","http://elastic:9200"]
+```
+
+Install nginx for running a proxy on kibana  
+`sudo yum install nginx -y`  
+
+Edit the nginx config file to add kibana  
+`sudo vi /etc/nginx/conf.d/kibana.conf`  
+```
+server {
+  listen 80;
+  server_name kibana;
+  proxy_max_temp_file_size 0;
+
+  location / {
+    proxy_pass http://127.0.0.1:5601/;
+
+    proxy_redirect off;
+    proxy_buffering off;
+
+    proxy_http_version 1.1;
+    proxy_set_header Connection "Keep-Alive";
+    proxy_set_header Proxy-Connection "Keep-Alive";
+
+  }
+
+}
+```
+
+Edit the nginx config and unload the default server  
+`sudo vi /etc/nginx/nginx.conf`  
+```
+:39     #
+:40     #
+:41     #
+```
+
+Edit the firewall config to allow the newly created server through  
+`sudo firewall-cmd --add-port=80/tcp --permanent`  
+`sudo firewall-cmd --reload`  
+
+Enable and start nginx  
+`sudo systemctl enable nginx --now`  
+`sudo systemctl status nginx`  
+`sudo systemctl enable kibana --now`  
+`sudo systemctl status kibana` 
+
+Curl the ecs file from the local repository  
+`sudo curl -LO https://repo/fileshare/kibana/ecskibana.tar.gz`  
+
+Uncompress the archive  
+`tar -zxvf ecskibana.tar.gz`  
+
+Install jq  
+`sudo yum install jq -y`  
+
+Import the index templates  
+`sudo ./import-index-templates.sh http://elastic0:9200`  
+
+
+
+
+Verify kibana is operating as intended by browsing to kibana  
+`exit`  
+
+`http://kibana`
