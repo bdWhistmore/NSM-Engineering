@@ -929,61 +929,33 @@ Edit the configuration files for zookeeper
 `sudo vi /etc/zookeeper/zoo.cfg`  
 
 ```
-# The unique id of this broker should be different for each kafka node. Good practice is to match the kafka broker id to the zookeeper server id.
-broker.id=0
+# where zookeeper will store its data
+ dataDir=/data/zookeeper
 
-# the port in wich kafka should use to communicate with other kafka clients
-port=9092
-# the hostname or IP address in which the server listens on
-listeners=PLAINTEXT://pipeline0:9092
+ # what port should clients like kafka connect on
+ clientPort=2181
 
-# hostname that will be advertised to producers and consumers
-advertised.listeners=PLAINTEXT://pipeline0:9092
+ # how many clients should be allowed to connect, 0 = unlimited
+ maxClientCnxns=0
 
-# number of threads used to send network responses
-num.network.threads=3
+ # list of zookeeper nodes to make up the cluster
+ # First port is how followers and leaders communicate
+ # Second port is used during the election process to determine a leader
+ server.1=pipeline0:2888:3888
+ server.2=pipeline1:2888:3888
+ server.3=pipeline2:2888:3888
 
-# number of threads used to make I/O requests
-num.io.threads=8
-socket.send.buffer.bytes=102400
-socket.receive.buffer.bytes=102400
-socket.request.max.bytes=104857600
+ # more than one zookeeper node will have a unique server id.
+ # Ex.) server.1, server.2, etc..
 
-# where kafka should write its data to
-log.dirs=/data/kafka
+ # milliseconds in which zookeeper should consider a single tick
+ tickTime=2000
 
-# how many partitions and replicas should be generated for topics that are created by other software
-num.partitions=3
-offsets.topic.replication.factor=3
-transaction.state.log.replication.factor=3
-transaction.state.log.min.isr=2
-default.replication.factor = 3
-min.insync.replicas = 2
+ # amount of ticks a follow has to connect and sync with the leader
+ initLimit=5
 
-# how many threads should be used for shutdown and start up
-num.recovery.threads.per.data.dir=3
-
-# how long should we retain logs in kafka
-log.retention.hours=12
-log.retention.bytes=90000000000
-
-# max size of a single log file
-log.segment.bytes=1073741824
-
-# frequency in miliseconds to check if a log needs to be deleted
-log.retention.check.interval.ms=300000
-log.cleaner.enable=false
-
-# will not allow a node to be elected leader if it is not in sync with other nodes. Prevents possible missing messages
-unclean.leader.election.enable=false
-
-# automatically create topics from external software
-auto.create.topics.enable=false
-
-
-# how to connect kafka to zookeeper
-zookeeper.connect=pipeline0:2181,pipeline1:2181,pipeline2:2181
-zookeeper.connection.timeout.ms=30000
+ # amount of ticks a follower has to sync with a leader before being dropped
+ syncLimit=2
 ```
 
 Edit the firewall configuration to allow zookeeper  
@@ -1475,6 +1447,85 @@ Verify kibana is operating as intended by browsing to kibana
 
 ---
 
-Installing and Configuring Logstash
+Installing and Configuring Logstash as a Cluster
 
 ---
+
+`ssh pipeline0`  
+`ssh pipeline1`  
+`ssh pipeline2`  
+
+Begin by installing logstash  
+`sudo yum install logstash -y`  
+
+Curl the logstash config from the local repository  
+`sudo curl -LO https://repo/fileshare/logstash/logstash.tar.gz`  
+
+Uncompress and move the archive  
+`sudo tar -zxvf logstash.tar.gz -C /etc/logstash && cd /etc/logstash`  
+
+Set the correct permissions  
+`sudo chown -R logstash: /etc/logstash`  
+`sudo chmod -R 744 /etc/logstash/conf.d/ruby/`  
+
+Change directories and edit the configuration files
+`cd /etc/logstash/conf.d/`  
+
+`sudo sed -i s/127.0.0.1:9092/pipeline0:9092,pipeline1:9092,pipeline2:9092/g logstash-100-input-kafka-{suricata,fsf,zeek}.conf`  
+
+`sudo vi logstash-100-input-kafka-zeek.conf`  
+```
+:%s/127.0.0.1:9092/pipeline0:9092,pipeline1:9092,pipeline2:9092/g
+```
+
+`sudo vi logstash-100-input-kafka-suricata.conf`  
+```
+:%s/127.0.0.1:9092/pipeline0:9092,pipeline1:9092,pipeline2:9092/g
+```
+
+`sudo vi logstash-100-input-kafka-fsf.conf`  
+```
+:%s/127.0.0.1:9092/pipeline0:9092,pipeline1:9092,pipeline2:9092/g
+```
+
+Update the elasticsearch output  
+`sudo sed -i 's/"127.0.0.1"/"elastic0", "elastic1", "elastic2"/g' logstash-9999-output-elasticsearch.conf`  
+
+`sudo vi logstash-9999-output-elasticsearch.conf`  
+```
+:%s/"127.0.0.1"/"elastic0", "elastic1", "elastic2"/g' logstash-9999-output-elasticsearch.conf
+```
+
+Test the logstash output  
+`sudo -u logstash /usr/share/logstash/bin/logstash -t --path.settings /etc/logstash`  
+
+Enable and start logstash  
+`sudo systemctl enable logstash --now`
+`sudo systemctl status logstash`  
+
+`sudo tail -f /var/log/logstash/logstash-plain.log`  
+
+Test that logstash is shipping logs to elastic by browsing to kibana  
+
+`http://kibana/app/kibana#/management/kibana/index_pattern?_g=()`  
+
+
+---
+
+Creating the index patterns in Kibana
+
+---
+
+Navigate to kibana and create an index pattern in stack management  
+
+```
+http://kibana/app/kibana#/management/kibana/index_pattern?_g=()
+
+ecs-suricata-*    @timestamp
+ecs-zeek-*        @timestamp
+fsf-*             @timestamp
+ecs-*             @timestamp
+```
+
+
+
