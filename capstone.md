@@ -385,24 +385,14 @@ Installing and Configuring FSF
 `sudo yum install fsf -y && sudo vi /opt/fsf/fsf-server/conf/config.py`  
 
 ```
-!/usr/bin/env python
-#
-# Basic configuration attributes for scanner. Used as default
-# unless the user overrides them.
-#
-
-import socket
-
-SCANNER_CONFIG = { 'LOG_PATH' : '/data/fsf',
+{ 'LOG_PATH' : '/data/fsf',
                    'YARA_PATH' : '/var/lib/yara-rules/rules.yara',
                    'PID_PATH' : '/run/fsf/fsf.pid',
                    'EXPORT_PATH' : '/data/fsf/archive',
-                   'TIMEOUT' : 60,
-                   'MAX_DEPTH' : 10,
                    'ACTIVE_LOGGING_MODULES' : ['rockout'],
                    }
 
-SERVER_CONFIG = { 'IP_ADDRESS' : "localhost",
+{ 'IP_ADDRESS' : "localhost",
                   'PORT' : 5800 }
 
 ```
@@ -417,12 +407,10 @@ Create the directories for fsf to access
 ```
 
 Enable and start the fsf service  
-`sudo systemctl enable fsf --now`  
-`sudo systemctl status fsf`  
+`sudo systemctl enable fsf --now && sudo systemctl status fsf`  
 
 Verify fsf service is running as intended  
-`/opt/fsf/fsf-client/fsf_client.py --full ~/interface.sh`  
-`ll /data/fsf/`
+`/opt/fsf/fsf-client/fsf_client.py --full ~/interface.sh && ll /data/fsf/`
 
 
 `exit`
@@ -447,13 +435,12 @@ Edit the zeek config file to the additional fsf scripts
 ```
 
 Stop zeek workers and redeploy  
-`sudo -u zeek zeekctl stop`  
-`sudo -u zeek zeekctl start`   
-`sudo -u zeek zeekctl status`  
+`sudo -u zeek zeekctl deploy && sudo -u zeek zeekctl status`  
 
 Verify the filescanning is loaded by zeek  
-`curl google.com`  
-`cat /data/zeek/current/files.log`
+`curl google.com && cat /data/zeek/current/files.log | jq`
+
+
 `exit`
 
 ---
@@ -467,96 +454,50 @@ Begin by accessing the pipeline0 container
 `ssh pipeline1`  
 `ssh pipeline2`  
 
-Install kafka and zookeeper    
-`sudo yum install kafka zookeeper -y`  
-
-Create the data directories and set ownership for zookeeper  
-`sudo mkdir -p /data/zookeeper`  
-
 Create a unique id pipeline0  
-`sudo -s`    
-`sudo echo '1' >> /data/zookeeper/myid`    
-`exit`  
-`cat /data/zookeeper/myid`
+`sudo yum install kafka zookeeper -y && sudo mkdir -p /data/zookeeper && sudo -s && sudo echo '1' >> /data/zookeeper/myid && exit && cat /data/zookeeper/myid`
 
 Create a unique id on pipeline1  
-`sudo -s`  
-`sudo echo '2' >> /data/zookeeper/myid`  
-`exit`  
-`cat /data/zookeeper/myid`  
+`sudo yum install kafka zookeeper -y && sudo mkdir -p /data/zookeeper && sudo -s && sudo echo '2' >> /data/zookeeper/myid && exit && cat /data/zookeeper/myid`
 
 Create a unique id pipeline2  
-`sudo -s`  
-`sudo echo '3' >> /data/zookeeper/myid`  
-`exit`  
-`cat /data/zookeeper/myid`
+`sudo yum install kafka zookeeper -y && sudo mkdir -p /data/zookeeper && sudo -s && sudo echo '3' >> /data/zookeeper/myid && exit && cat /data/zookeeper/myid`
 
 Set ownership for zookeeper  
-`sudo chown -R zookeeper: /data/zookeeper` 
-`sudo vi /etc/zookeeper/zoo.cfg`  
+`sudo chown -R zookeeper: /data/zookeeper && sudo vi /etc/zookeeper/zoo.cfg`  
 
 ```
-# The unique id of this broker should be different for each kafka node. Good practice is to match the kafka broker id to the zookeeper server id.
-broker.id=0
+# where zookeeper will store its data
+ dataDir=/data/zookeeper
 
-# the port in wich kafka should use to communicate with other kafka clients
-port=9092
-# the hostname or IP address in which the server listens on
-listeners=PLAINTEXT://pipeline0:9092
+ # what port should clients like kafka connect on
+ clientPort=2181
 
-# hostname that will be advertised to producers and consumers
-advertised.listeners=PLAINTEXT://pipeline0:9092
+ # how many clients should be allowed to connect, 0 = unlimited
+ maxClientCnxns=0
 
-# number of threads used to send network responses
-num.network.threads=3
+ # list of zookeeper nodes to make up the cluster
+ # First port is how followers and leaders communicate
+ # Second port is used during the election process to determine a leader
+ server.1=pipeline0:2888:3888
+ server.2=pipeline1:2888:3888
+ server.3=pipeline2:2888:3888
 
-# number of threads used to make I/O requests
-num.io.threads=8
-socket.send.buffer.bytes=102400
-socket.receive.buffer.bytes=102400
-socket.request.max.bytes=104857600
+ # more than one zookeeper node will have a unique server id.
+ # Ex. server.1, server.2, etc..
 
-# where kafka should write its data to
-log.dirs=/data/kafka
+ # milliseconds in which zookeeper should consider a single tick
+ tickTime=2000
 
-# how many partitions and replicas should be generated for topics that are created by other software
-num.partitions=3
-offsets.topic.replication.factor=3
-transaction.state.log.replication.factor=3
-transaction.state.log.min.isr=2
-default.replication.factor = 3
-min.insync.replicas = 2
+ # amount of ticks a follow has to connect and sync with the leader
+ initLimit=5
 
-# how many threads should be used for shutdown and start up
-num.recovery.threads.per.data.dir=3
-
-# how long should we retain logs in kafka
-log.retention.hours=12
-log.retention.bytes=90000000000
-
-# max size of a single log file
-log.segment.bytes=1073741824
-
-# frequency in miliseconds to check if a log needs to be deleted
-log.retention.check.interval.ms=300000
-log.cleaner.enable=false
-
-# will not allow a node to be elected leader if it is not in sync with other nodes. Prevents possible missing messages
-unclean.leader.election.enable=false
-
-# automatically create topics from external software
-auto.create.topics.enable=false
-
-
-# how to connect kafka to zookeeper
-zookeeper.connect=pipeline0:2181,pipeline1:2181,pipeline2:2181
-zookeeper.connection.timeout.ms=30000
+ # amount of ticks a follower has to sync with a leader before being dropped
+ syncLimit=2
 ```
 
 Edit the firewall configuration to allow zookeeper on pipeline0,1,2  
-`sudo firewall-cmd --add-port={2181,2888,3888}/tcp --permanent`  
-`sudo firewall-cmd --reload`  
-`sudo systemctl enable zookeeper --now`
+`sudo firewall-cmd --add-port={2181,2888,3888}/tcp --permanent && sudo firewall-cmd --reload && sudo systemctl enable zookeeper --now`
 
 Verify cluster config   
 `exit`
@@ -574,10 +515,7 @@ Begin by accessing the pipeline containers
 `ssh pipeline2`  
 
 Create the data directories and set ownership for kafka    
-`sudo mkdir -p /data/kafka`  
-`sudo chown -R kafka: /data/kafka` 
-`sudo cp /etc/kafka/server{.properties,.properties.bk}` 
-`sudo vi /etc/kafka/server.properties`  
+`sudo mkdir -p /data/kafka && sudo chown -R kafka: /data/kafka && sudo cp /etc/kafka/server{.properties,.properties.bk} && sudo vi /etc/kafka/server.properties`  
 
 ```
 # The unique id of this broker should be different for each kafka node. Good practice is to match the kafka broker id to the zookeeper server id.
@@ -656,27 +594,19 @@ Make a few changes to each file
 
 ```
 Allow kafka through the firewall  
-`sudo firewall-cmd --add-port=9092/tcp --permanent`  
-`sudo firewall-cmd --reload`  
-`sudo systemctl enable kafka --now`
+`sudo firewall-cmd --add-port=9092/tcp --permanent && sudo firewall-cmd --reload && sudo systemctl enable kafka --now`
 
 Verify kafka is operating as intended on pipeline0  
 `ssh pipeline0`  
 
-`sudo /usr/share/kafka/bin/kafka-topics.sh --bootstrap-server pipeline0:9092 --create --topic test --partitions 3 --replication-factor 3`
-
-`sudo /usr/share/kafka/bin/kafka-topics.sh --bootstrap-server pipeline0:9092 --describe --topic test`
+`sudo /usr/share/kafka/bin/kafka-topics.sh --bootstrap-server pipeline0:9092 --create --topic test --partitions 3 --replication-factor 3 && sudo /usr/share/kafka/bin/kafka-topics.sh --bootstrap-server pipeline0:9092 --describe --topic test`
 
 Delete the test topic and verify topic was deleted  
 
-`sudo /usr/share/kafka/bin/kafka-topics.sh --bootstrap-server pipeline0:9092 --delete --topic test`
-
-`sudo /usr/share/kafka/bin/kafka-topics.sh --bootstrap-server pipeline0:9092 --list`
+`sudo /usr/share/kafka/bin/kafka-topics.sh --bootstrap-server pipeline0:9092 --delete --topic test && sudo /usr/share/kafka/bin/kafka-topics.sh --bootstrap-server pipeline0:9092 --list`
 
 Create the zeek raw topic  
-`sudo /usr/share/kafka/bin/kafka-topics.sh --create --zookeeper pipeline0:2181 --replication-factor 3 --partitions 3 --topic zeek-raw`  
-
-`sudo /usr/share/kafka/bin/kafka-topics.sh --bootstrap-server pipeline0:9092 --describe --topic zeek-raw`  
+`sudo /usr/share/kafka/bin/kafka-topics.sh --create --zookeeper pipeline0:2181 --replication-factor 3 --partitions 3 --topic zeek-raw && sudo /usr/share/kafka/bin/kafka-topics.sh --bootstrap-server pipeline0:9092 --describe --topic zeek-raw`  
 
 `exit`
 
@@ -725,17 +655,7 @@ Installing and Configuring Filebeat
 `ssh sensor`  
 
 Begin by installing the filebeat packages and dependencies  
-`sudo yum install filebeat -y`  
-
-Create a backup of the filebeat configuration  
-`sudo mv /etc/filebeat/filebeat{.yml,.yml.bk}`  
-
-Curl the filebeat configuration from the local repository  
-`cd /etc/filebeat`  
-`sudo curl -LO https://repo/fileshare/filebeat/filebeat.yml`  
-
-Edit the filebeat configuration file  
-`sudo vi filebeat.yml`  
+`sudo yum install filebeat -y && sudo mv /etc/filebeat/filebeat{.yml,.yml.bk} && cd /etc/filebeat && sudo curl -LO https://repo/fileshare/filebeat/filebeat.yml && sudo vi filebeat.yml`  
 
 ```
 :set nu
@@ -746,12 +666,7 @@ Edit the filebeat configuration file
 Create the extra kafka topics to accept fsf-raw and suricata-raw  
 `ssh pipeline0`  
 
-`sudo /usr/share/kafka/bin/kafka-topics.sh --create --zookeeper pipeline0:2181 --replication-factor 3 --partitions 3 --topic fsf-raw`  
-
-`sudo /usr/share/kafka/bin/kafka-topics.sh --create --zookeeper pipeline0:2181 --replication-factor 3 --partitions 3 --topic suricata-raw`
-
-List the current kafka topics  
-`sudo /usr/share/kafka/bin/kafka-topics.sh --list --zookeeper pipeline0:2181`  
+`sudo /usr/share/kafka/bin/kafka-topics.sh --create --zookeeper pipeline0:2181 --replication-factor 3 --partitions 3 --topic fsf-raw && sudo /usr/share/kafka/bin/kafka-topics.sh --create --zookeeper pipeline0:2181 --replication-factor 3 --partitions 3 --topic suricata-raw && sudo /usr/share/kafka/bin/kafka-topics.sh --list --zookeeper pipeline0:2181`  
 
 Enable and start filebeat on the sensor  
 `ssh sensor`  
@@ -775,11 +690,7 @@ Installing and Configuring Elasticsearch as a Cluster
 `ssh elastic2`  
 
 Begin by installing elasticsearch  
-`sudo yum install elasticsearch -y`  
-`sudo mv /etc/elasticsearch/elasticsearch{.yml,.yml.bk}`  
-`cd ~`  
-`sudo curl -LO https://repo/fileshare/elasticsearch/elasticsearch.yml`   
-`sudo vi elasticsearch.yml`  
+`sudo yum install elasticsearch -y && sudo mv /etc/elasticsearch/elasticsearch{.yml,.yml.bk} && cd ~ && sudo curl -LO https://repo/fileshare/elasticsearch/elasticsearch.yml && sudo vi elasticsearch.yml`  
 
 ```
 cluster.name:  nsm-cluster
@@ -816,21 +727,14 @@ cluster.initial_master_nodes: ["es-node-0","es-node-1","es-node-2"]
 ```
 
 Move the edited config to the elastic directory and change the perms  
-`sudo mv ~/elasticsearch.yml /etc/elasticsearch/elasticsearch.yml`  
-`sudo chown -R elasticsearch: /etc/elasticsearch/`  
-`sudo chmod 640 /etc/elasticsearch/elasticsearch.yml`  
-`sudo mkdir /usr/lib/systemd/system/elasticsearch.service.d`  
-`sudo chmod 755 /usr/lib/systemd/system/elasticsearch.service.d`  
-`sudo vi /usr/lib/systemd/system/elasticsearch.service.d/override.conf`  
+`sudo mv ~/elasticsearch.yml /etc/elasticsearch/elasticsearch.yml && sudo chown -R elasticsearch: /etc/elasticsearch/ && sudo chmod 640 /etc/elasticsearch/elasticsearch.yml && sudo mkdir /usr/lib/systemd/system/elasticsearch.service.d && sudo chmod 755 /usr/lib/systemd/system/elasticsearch.service.d && sudo vi /usr/lib/systemd/system/elasticsearch.service.d/override.conf`  
 
 ```
 [Service]
 LimitMEMLOCK=infinity
 ```
 
-`sudo chmod 644 /usr/lib/systemd/system/elasticsearch.service.d/override.conf`  
-`sudo systemctl daemon-reload`  
-`sudo vi /etc/elasticsearch/jvm.options.d/jvm_override.conf`  
+`sudo chmod 644 /usr/lib/systemd/system/elasticsearch.service.d/override.conf && sudo systemctl daemon-reload && sudo vi /etc/elasticsearch/jvm.options.d/jvm_override.conf`  
 
 ```
 -Xms2g
@@ -838,13 +742,70 @@ LimitMEMLOCK=infinity
 ```
 
 Create and modify the data directory  
-`sudo mkdir -p /data/elasticsearch`  
-`sudo chown -R elasticsearch: /data/elasticsearch`  
-`sudo chmod 755 /data/elasticsearch`  
-`sudo firewall-cmd --add-port={9200,9300}/tcp --permanent`  
-`sudo firewall-cmd --reload`  
-`sudo systemctl enable elasticsearch --now`  
+`sudo mkdir -p /data/elasticsearch && sudo chown -R elasticsearch: /data/elasticsearch && sudo chmod 755 /data/elasticsearch && sudo firewall-cmd --add-port={9200,9300}/tcp --permanent && sudo firewall-cmd --reload && sudo systemctl enable elasticsearch --now`  
 
 Verify the cluster is operating as intended  
 `curl elastic0:9200/_cat/nodes`  
 
+---
+
+Installing and Configuring Kibana
+
+---
+
+`ssh kibana`  
+
+`sudo yum install kibana -y && sudo mv /etc/kibana/kibana{.yml,.yml.bk} && sudo vi /etc/kibana/kibana.yml`  
+
+```
+server.port: 5601
+server.host: localhost
+server.name: kibana
+elasticsearch.hosts: ["http://elastic0:9200","http://elastic1:9200","http://elastic:9200"]
+```
+
+Install nginx for running a proxy on kibana  
+`sudo yum install nginx -y && sudo vi /etc/nginx/conf.d/kibana.conf`  
+```
+server {
+  listen 80;
+  server_name kibana;
+  proxy_max_temp_file_size 0;
+
+  location / {
+    proxy_pass http://127.0.0.1:5601/;
+
+    proxy_redirect off;
+    proxy_buffering off;
+
+    proxy_http_version 1.1;
+    proxy_set_header Connection "Keep-Alive";
+    proxy_set_header Proxy-Connection "Keep-Alive";
+
+  }
+
+}
+```
+
+Edit the nginx config and unload the default server  
+`sudo vi /etc/nginx/nginx.conf`  
+```
+:39     #
+:40     #
+:41     #
+```
+
+Edit the firewall config to allow the newly created server through  
+`sudo firewall-cmd --add-port=80/tcp --permanent && sudo firewall-cmd --reload`  
+
+Enable and start nginx  
+`sudo systemctl enable nginx --now && sudo systemctl status nginx && sudo systemctl enable kibana --now && sudo systemctl status kibana` 
+
+Curl the ecs file from the local repository  
+`sudo curl -LO https://repo/fileshare/kibana/ecskibana.tar.gz && tar -zxvf ecskibana.tar.gz && sudo yum install jq -y && cd ~/ecskibana/ && sudo ./import-index-templates.sh http://elastic0:9200`  
+
+
+Verify kibana is operating as intended by browsing to kibana  
+`exit`  
+
+`http://kibana`
