@@ -1,6 +1,13 @@
 
-
-# Elastic NSM Engineer
+```
+ _______ _                 _          ______     _    ______     _______             _                        
+(_______) |           _   (_)        |  ___ \   | |  |  ___ \   (_______)           (_)                       
+ _____  | | ____  ___| |_  _  ____   | |   | |   \ \ | | _ | |   _____   ____   ____ _ ____   ____ ____  ____ 
+|  ___) | |/ _  |/___)  _)| |/ ___)  | |   | |    \ \| || || |  |  ___) |  _ \ / _  | |  _ \ / _  ) _  )/ ___)
+| |_____| ( ( | |___ | |__| ( (___   | |   | |_____) ) || || |  | |_____| | | ( ( | | | | | ( (/ ( (/ /| |    
+|_______)_|\_||_(___/ \___)_|\____)  |_|   |_(______/|_||_||_|  |_______)_| |_|\_|| |_|_| |_|\____)____)_|    
+                                                                              (_____|                         
+```
 
 Begin by listing the available containers  
 `lxc list`  
@@ -1527,5 +1534,15 @@ fsf-*             @timestamp
 ecs-*             @timestamp
 ```
 
+Navigate to the discover tab and verify each index has data  
 
+http://kibana/app/kibana#/discover
+
+ecs-suricata-*    
+ecs-zeek-*        
+fsf-*             
+
+---
+
+Welcome to the Cumzone
 
