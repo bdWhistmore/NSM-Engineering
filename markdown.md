@@ -574,7 +574,7 @@ fi
 
 Create and edit the eth1 interface script  
   
-`echo -e '# [monitor]\nDEVICE=eth1\nBOOTPROTO=none\nONBOOT=yes\nNM_CONTROLLED=no\nTYPE=Ethernet\n' | sudo tee /etc/sysconfig/network-scripts/ifcfg-eth1 >/dev/null`  
+`echo -e '# [monitor]\nDEVICE=eth1\nBOOTPROTO=none\nONBOOT=yes\nNM_CONTROLLED=no\nTYPE=Ethernet' | sudo tee /etc/sysconfig/network-scripts/ifcfg-eth1 >/dev/null`  
 
 Verify the file was created correctly  
 `sudo vi /etc/sysconfig/network-scripts/ifcfg-eth1`  
@@ -1162,7 +1162,7 @@ Edit the filebeat configuration file
 ```
 :set nu
 
-:34       hosts: ["pipeline0:9092,"pipeline1:9092","pipeline2:9092"]
+:34       hosts: ["pipeline0:9092","pipeline1:9092","pipeline2:9092"]
 ```
 
 Create the extra kafka topics to accept fsf-raw and suricata-raw  
