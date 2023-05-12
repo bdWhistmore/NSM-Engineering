@@ -766,18 +766,11 @@ Installing and Configuring Logstash as a Cluster
 
 ---
 
-`ssh pipeline0`  
-`ssh pipeline1`  
-`ssh pipeline2`  
+`ssh ubuntu`
 
-Begin by installing logstash  
+Begin by installing logstash from the host machine 
 
-`sudo yum install logstash -y && cd ~/ && sudo curl -LO https://repo/fileshare/logstash/logstash.tar.gz && sudo tar -zxvf logstash.tar.gz -C /etc/logstash && cd /etc/logstash && sudo chown -R logstash: /etc/logstash && sudo chmod -R 744 /etc/logstash/conf.d/ruby/ && cd /etc/logstash/conf.d/ && sudo sed -i s/127.0.0.1:9092/pipeline0:9092,pipeline1:9092,pipeline2:9092/g logstash-100-input-kafka-{suricata,fsf,zeek}.conf && sudo sed -i 's/"127.0.0.1"/"elastic0", "elastic1", "elastic2"/g' logstash-9999-output-elasticsearch.conf && sudo -u logstash /usr/share/logstash/bin/logstash -t --path.settings /etc/logstash`  
-
-Enable and start logstash  
-`sudo systemctl enable logstash --now && sudo systemctl status logstash`  
-
-`sudo tail -f /var/log/logstash/logstash-plain.log`  
+`for host in pipeline{0..2}; do ssh -t elastic@$host "sudo yum install logstash -y && sudo curl -LO https://repo/fileshare/logstash/logstash.tar.gz && sudo tar -zxvf logstash.tar.gz  -C /etc/logstash && sudo chown logstash: /etc/logstash/conf.d/* && sudo chmod -R 744 /etc/logstash/conf.d/ruby && sudo sed -i s/127.0.0.1:9092/pipeline0:9092,pipeline1:9092,pipeline2:9092/g /etc/logstash/conf.d/logstash-100-input-kafka-{suricata,fsf,zeek}.conf && sudo sed -i 's/\"127.0.0.1\"/\"elastic0\", \"elastic1\", \"elastic2\"/g' /etc/logstash/conf.d/logstash-9999-output-elasticsearch.conf && sudo -u logstash /usr/share/logstash/bin/logstash -t --path.settings /etc/logstash"; done`
 
 Test that logstash is shipping logs to elastic by browsing to kibana  
 
