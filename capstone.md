@@ -774,6 +774,11 @@ Begin by installing logstash from the host machine
 
 Test that logstash is shipping logs to elastic by browsing to kibana  
 
+`ssh pipeline0`  
+`ssh pipeline1`  
+`ssh pipeline2`  
+`sudo systemctl enable logstash --now sudo systemctl status logstash`
+
 `http://kibana/app/kibana#/management/kibana/index_pattern?_g=()`  
 
 
