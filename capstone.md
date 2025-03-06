@@ -451,7 +451,7 @@ Installing and Configuring FSF
 ```
 
 Create the directories for fsf to access  
-`sudo mkdir -p /data/fsf/archive && sudo chown -R fsf: /data/fsf &&sudo vi /opt/fsf/fsf-client/conf/config.py`  
+`sudo mkdir -p /data/fsf/archive && sudo chown -R fsf: /data/fsf && sudo vi /opt/fsf/fsf-client/conf/config.py`  
 
 ```
 :set nu
