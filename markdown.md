@@ -1,6 +1,4 @@
 
-
-
 # Elastic NSM Engineer
 
 Begin by listing the available containers.  
