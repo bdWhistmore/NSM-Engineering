@@ -3,7 +3,7 @@
 
 # Elastic NSM Engineer
 
-Begin by listing the available containers  
+Begin by listing the available containers.  
 `lxc list`  
 `lxc start --all`
 
@@ -1451,6 +1451,8 @@ Verify kibana is operating as intended by browsing to kibana
 Installing and Configuring Logstash
 
 ---
+<<<<<<< HEAD
+=======
 =======
 
 ```
@@ -3001,3 +3003,4 @@ fsf-*
 Welcome to the Cumzone
 
 >>>>>>> 2dee489138403fb66d9a9b3375ba00b13c2b1229
+>>>>>>> main
