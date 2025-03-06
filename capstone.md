@@ -1,7 +1,6 @@
-<<<<<<< HEAD
 # Elastic NSM Engineer Capstone
 
-=======
+
 ```
  _______ _                 _          ______     _    ______      ______                                       
 (_______) |           _   (_)        |  ___ \   | |  |  ___ \    / _____)                _                     
@@ -11,7 +10,6 @@
 |_______)_|\_||_(___/ \___)_|\____)  |_|   |_(______/|_||_||_|   \______)_||_| ||_/(___/ \___)___/|_| |_|\____)
                                                                              |_|                               
 ```
->>>>>>> 2dee489138403fb66d9a9b3375ba00b13c2b1229
 
 `lxc start --all`
 
@@ -141,11 +139,8 @@ Push the created certificate from the local repository to all the containers
 
 
 `exit`  
-<<<<<<< HEAD
 `sudo scp elastic@repo:/home/elastic/certs/localCA.crt ~/localCA.crt`  
-=======
-  
->>>>>>> 2dee489138403fb66d9a9b3375ba00b13c2b1229
+
 
 ---
 
@@ -155,11 +150,10 @@ Configuring the Sensor to Utilize the Local Repository
 
 `ssh sensor`  
  
-<<<<<<< HEAD
 `mkdir ~/archive && sudo mv /etc/yum.repos.d/* ~/archive/ && sudo vi /etc/yum.repos.d/local.repo`    
-=======
+
 `mkdir ~/archive && sudo mv /etc/yum.repos.d/* ~/archive/ && sudo vi /etc/yum.repos.d/local.repo && sudo yum makecache fast` 
->>>>>>> 2dee489138403fb66d9a9b3375ba00b13c2b1229
+
 
 ``` 
 [local-base]
@@ -199,12 +193,11 @@ enabled=1
 gpgcheck=0
 
 ```
-<<<<<<< HEAD
+
 
 `sudo yum makecache fast`  
-=======
+
  
->>>>>>> 2dee489138403fb66d9a9b3375ba00b13c2b1229
 
 ---
 
@@ -213,13 +206,13 @@ Configure the rest of the containers to pull from the local repository
 ---
 
 
-<<<<<<< HEAD
+
 `cp /etc/yum.repos.d/local.repo ~/archive/`
 
 `for host in elastic{0..2} pipeline{0..2} kibana; do ssh -t elastic@$host 'sudo mkdir ~/archive && sudo mv /etc/yum.repos.d/* ~/archive/' && sudo scp /etc/yum.repos.d/local.repo elastic@$host:~/local.repo && ssh -t elastic@$host 'sudo mv ~/local.repo /etc/yum.repos.d/local.repo && sudo yum makecache fast' ; done`
-=======
+
 `cp /etc/yum.repos.d/local.repo ~/archive/ && for host in elastic{0..2} pipeline{0..2} kibana; do ssh -t elastic@$host 'sudo mkdir ~/archive && sudo mv /etc/yum.repos.d/* ~/archive/' && sudo scp /etc/yum.repos.d/local.repo elastic@$host:~/local.repo && ssh -t elastic@$host 'sudo mv ~/local.repo /etc/yum.repos.d/local.repo && sudo yum makecache fast' ; done`
->>>>>>> 2dee489138403fb66d9a9b3375ba00b13c2b1229
+
 
 
 ---
@@ -261,11 +254,11 @@ fi
 ```
 
 Create the interface and verify changes  
-<<<<<<< HEAD
+
 `echo -e '# [monitor]\nDEVICE=eth1\nBOOTPROTO=none\nONBOOT=yes\nNM_CONTROLLED=no\nTYPE=Ethernet\n' | sudo tee /etc/sysconfig/network-scripts/ifcfg-eth1 >/dev/null && sudo systemctl restart network && ip a`  
-=======
+
 `echo -e '# [monitor]\nDEVICE=eth1\nBOOTPROTO=none\nONBOOT=yes\nNM_CONTROLLED=no\nTYPE=Ethernet' | sudo tee /etc/sysconfig/network-scripts/ifcfg-eth1 >/dev/null && sudo systemctl restart network && ip a`  
->>>>>>> 2dee489138403fb66d9a9b3375ba00b13c2b1229
+
 
 ---
 
@@ -273,12 +266,12 @@ Installing and Configuring Stenographer
 
 ---
 
-<<<<<<< HEAD
+
 `sudo yum install stenographer -y && cd /etc/stenographer && sudo vi config`  
 
-=======
+
 `sudo yum install stenographer -y && cd /etc/stenographer && sudo vi config && sudo mkdir -p /data/stenographer/{index,packets} && sudo chown -R stenographer:stenographer /data/stenographer && sudo stenokeys.sh stenographer stenographer && sudo systemctl enable stenographer --now && sudo systemctl status stenographer`  
->>>>>>> 2dee489138403fb66d9a9b3375ba00b13c2b1229
+
 ```
 {
   "Threads": [
@@ -298,7 +291,7 @@ Installing and Configuring Stenographer
 
 ```
 
-<<<<<<< HEAD
+
 `sudo mkdir -p /data/stenographer/{index,packets}`  
 `sudo chown -R stenographer:stenographer /data/stenographer `
 `sudo stenokeys.sh stenographer stenographer`  
@@ -311,11 +304,11 @@ Verify stenographer is operating as intended
 `ll /data/stenographer/{index,packets}`    
 
 `exit`  
-=======
+
 
 Verify stenographer is operating as intended    
 `ping 8.8.8.8 -c 5 && clear && echo "waiting 60 seconds.." && sleep 60 && sudo stenoread 'host 8.8.8.8' -nn && ll /data/stenographer/{index,packets}`    
->>>>>>> 2dee489138403fb66d9a9b3375ba00b13c2b1229
+
 
 ---
 
@@ -323,7 +316,7 @@ Installing and Configuring Suricata
 
 ---
 
-<<<<<<< HEAD
+
 `sudo yum install suricata -y && cd /etc/suricata`  
 
 ```
@@ -341,7 +334,7 @@ sed -i '56s/.*/default-log-dir: \/data\/suricata/; 60s/.*/  enabled: no/; 76s/.*
 Verify suricata is operating as intended  
 `curl google.com`  
 `cat /data/suricata/eve.json`
-=======
+
 `sudo -s`
 
 
@@ -349,14 +342,14 @@ Verify suricata is operating as intended
 
 Verify suricata is operating as intended  
 `curl google.com && clear && echo "waiting 5 seconds" && sleep 5 && tail -n 5 /data/suricata/eve.json`
->>>>>>> 2dee489138403fb66d9a9b3375ba00b13c2b1229
+
 
 ---
 
 Installing and Configuring Zeek  
 
 ---
-<<<<<<< HEAD
+
 `sudo yum install zeek -y && sudo yum install zeek-plugin-af_packet -y && sudo yum install zeek-plugin-kafka -y && cd /etc/zeek && sudo vi /etc/zeek/zeekctl.cfg`  
 ```
 :set nu
@@ -427,12 +420,12 @@ env_vars=fanout_id=77
 ```
 
 `sudo mkdir /data/zeek && chown -R zeek:zeek /data/zeek && chown -R zeek:zeek /etc/zeek && chown -R zeek:zeek /usr/share/zeek && chown -R zeek:zeek /usr/bin/zeek && chown -R zeek:zeek /usr/bin/capstats && chown -R zeek:zeek /var/spool/zeek && sudo /sbin/setcap cap_net_raw,cap_net_admin=eip /usr/bin/zeek && sudo /sbin/setcap cap_net_raw,cap_net_admin=eip /usr/bin/capstats && sudo getcap /usr/bin/zeek && sudo getcap /usr/bin/capstats && sudo -u zeek zeekctl deploy && sudo -u zeek zeekctl status && ll /data/zeek/current/`  
-=======
+
 
 `sudo -s`
 
 `sudo yum install zeek -y && sudo yum install zeek-plugin-af_packet -y && sudo yum install zeek-plugin-kafka -y && cd /etc/zeek && sudo sed -i '67s/.*/LogDir = \/data\/zeek/; 68s/.*/lb_custom.InterfacePrefix=af_packet::/' /etc/zeek/zeekctl.cfg && sudo mv /etc/zeek/node.cfg /etc/zeek/node.cfg.bk && echo -e '[logger]\ntype=logger\nhost=localhost\n\n[manager]\ntype=manager\nhost=localhost\npin_cpus=1\n\n[proxy-1]\ntype=proxy\nhost=localhost\n\n[worker-1]\ntype=worker\nhost=localhost\ninterface=eth1\nlb_method=custom\nlb_procs=2\npin_cpus=2,3\nenv_vars=fanout_id=77' | sudo tee /etc/zeek/node.cfg >/dev/null && sudo mkdir /usr/share/zeek/site/scripts && cd /usr/share/zeek/site/scripts && url_base="https://repo/fileshare/zeek/"; files=("afpacket.zeek" "extension.zeek" "extract-files.zeek" "fsf.zeek" "json.zeek" "kafka.zeek"); for file in "${files[@]}"; do sudo curl -LO "${url_base}${file}"; done && echo -e "\n\n\n\n\n\n\n\n\n\n" | sudo tee -a /usr/share/zeek/site/local.zeek > /dev/null && sudo sed -i.bak -e '104s|.*|@load ./scripts/afpacket.zeek|' -e '105s|.*|@load ./scripts/extension.zeek|' -e '113s|.*|redef ignore_checksums = T;|' /usr/share/zeek/site/local.zeek && sudo mkdir /data/zeek && sudo chown -R zeek:zeek /data/zeek && sudo chown -R zeek:zeek /etc/zeek && sudo chown -R zeek:zeek /usr/share/zeek && sudo chown -R zeek:zeek /usr/bin/zeek && sudo chown -R zeek:zeek /usr/bin/capstats && sudo chown -R zeek:zeek /var/spool/zeek && sudo /sbin/setcap cap_net_raw,cap_net_admin=eip /usr/bin/zeek && sudo /sbin/setcap cap_net_raw,cap_net_admin=eip /usr/bin/capstats && sudo getcap /usr/bin/zeek && sudo getcap /usr/bin/capstats && sudo -u zeek zeekctl deploy && sudo -u zeek zeekctl status && ll /data/zeek/current/ && exit`  
->>>>>>> 2dee489138403fb66d9a9b3375ba00b13c2b1229
+
 
 
 ---
@@ -440,7 +433,7 @@ env_vars=fanout_id=77
 Installing and Configuring FSF
 
 ---
-<<<<<<< HEAD
+
  
 `sudo yum install fsf -y && sudo vi /opt/fsf/fsf-server/conf/config.py`  
 
@@ -475,7 +468,7 @@ Verify fsf service is running as intended
 
 `exit`
 
-=======
+
 `sudo -s`
 
 
@@ -521,7 +514,7 @@ SERVER_CONFIG = { 'IP_ADDRESS' : ['localhost'],
 CLIENT_CONFIG = { 'LOG_FILE' : '/tmp/client_dbg.log' }
 ```
 
->>>>>>> 2dee489138403fb66d9a9b3375ba00b13c2b1229
+
 ---
 
 Editing Zeek to work with FSF  
@@ -530,7 +523,7 @@ Editing Zeek to work with FSF
 
 `ssh sensor`  
 
-<<<<<<< HEAD
+
 Edit the zeek config file to the additional fsf scripts  
 `sudo vi /usr/share/zeek/site/local.zeek`  
 
@@ -548,9 +541,9 @@ Stop zeek workers and redeploy
 Verify the filescanning is loaded by zeek  
 `curl google.com && cat /data/zeek/current/files.log | jq`
 
-=======
+
 `sudo sed -i -e '106s|.*|@load ./scripts/extract-files.zeek\n@load ./scripts/fsf.zeek\n@load ./scripts/json.zeek|' -e '107d' -e '108d' /usr/share/zeek/site/local.zeek && sudo -u zeek zeekctl deploy && sudo -u zeek zeekctl status && echo "Seems good to me, testing now...." && sleep 5 && clear && curl google.com && sleep 3 && cat /data/zeek/current/files.log | jq`
->>>>>>> 2dee489138403fb66d9a9b3375ba00b13c2b1229
+
 
 `exit`
 
@@ -566,7 +559,7 @@ Begin by accessing the pipeline0 container
 `ssh pipeline2`  
 
 Create a unique id pipeline0  
-<<<<<<< HEAD
+
 `sudo yum install kafka zookeeper -y && sudo mkdir -p /data/zookeeper && sudo -s && sudo echo '1' >> /data/zookeeper/myid && exit && cat /data/zookeeper/myid`
 
 Create a unique id on pipeline1  
@@ -577,7 +570,7 @@ Create a unique id pipeline2
 
 Set ownership for zookeeper  
 `sudo chown -R zookeeper: /data/zookeeper && sudo vi /etc/zookeeper/zoo.cfg`  
-=======
+
 `sudo -s`  
 
 `sudo yum install kafka zookeeper -y && sudo mkdir -p /data/zookeeper && sudo echo '1' >> /data/zookeeper/myid && cat /data/zookeeper/myid && sudo chown -R zookeeper: /data/zookeeper && sudo mv /etc/zookeeper/zoo.cfg /etc/zookeeper/zoo.cfg.bk && sudo vi /etc/zookeeper/zoo.cfg && sudo firewall-cmd --add-port={2181,2888,3888}/tcp --permanent && sudo firewall-cmd --reload && sudo systemctl enable zookeeper --now && sudo systemctl status zookeeper && exit`
@@ -593,7 +586,7 @@ Create a unique id pipeline2
 
 `sudo yum install kafka zookeeper -y && sudo mkdir -p /data/zookeeper && sudo echo '3' >> /data/zookeeper/myid && cat /data/zookeeper/myid && sudo chown -R zookeeper: /data/zookeeper && sudo mv /etc/zookeeper/zoo.cfg /etc/zookeeper/zoo.cfg.bk && sudo vi /etc/zookeeper/zoo.cfg && sudo firewall-cmd --add-port={2181,2888,3888}/tcp --permanent && sudo firewall-cmd --reload && sudo systemctl enable zookeeper --now && sudo systemctl status zookeeper && exit`
  
->>>>>>> 2dee489138403fb66d9a9b3375ba00b13c2b1229
+
 
 ```
 # where zookeeper will store its data
@@ -625,12 +618,12 @@ Create a unique id pipeline2
  syncLimit=2
 ```
 
-<<<<<<< HEAD
+
 Edit the firewall configuration to allow zookeeper on pipeline0,1,2  
 `sudo firewall-cmd --add-port={2181,2888,3888}/tcp --permanent && sudo firewall-cmd --reload && sudo systemctl enable zookeeper --now`
 
-=======
->>>>>>> 2dee489138403fb66d9a9b3375ba00b13c2b1229
+
+
 Verify cluster config   
 `exit`
 
@@ -647,11 +640,11 @@ Begin by accessing the pipeline containers
 `ssh pipeline2`  
 
 Create the data directories and set ownership for kafka    
-<<<<<<< HEAD
+
 `sudo mkdir -p /data/kafka && sudo chown -R kafka: /data/kafka && sudo cp /etc/kafka/server{.properties,.properties.bk} && sudo vi /etc/kafka/server.properties`  
-=======
+
 `sudo mkdir -p /data/kafka && sudo chown -R kafka: /data/kafka && sudo mv /etc/kafka/server{.properties,.properties.bk} && sudo vi /etc/kafka/server.properties && sudo firewall-cmd --add-port=9092/tcp --permanent && sudo firewall-cmd --reload && sudo systemctl enable kafka --now && sudo systemctl status kafka`  
->>>>>>> 2dee489138403fb66d9a9b3375ba00b13c2b1229
+
 
 ```
 # The unique id of this broker should be different for each kafka node. Good practice is to match the kafka broker id to the zookeeper server id.
@@ -710,7 +703,7 @@ auto.create.topics.enable=false
 zookeeper.connect=pipeline0:2181,pipeline1:2181,pipeline2:2181
 zookeeper.connection.timeout.ms=30000
 ```
-<<<<<<< HEAD
+
 
 Make a few changes to each file  
 
@@ -732,7 +725,7 @@ Make a few changes to each file
 ```
 Allow kafka through the firewall  
 `sudo firewall-cmd --add-port=9092/tcp --permanent && sudo firewall-cmd --reload && sudo systemctl enable kafka --now`
-=======
+
 ```
 # The unique id of this broker should be different for each kafka node. Good practice is to match the kafka broker id to the zookeeper server id.
 broker.id=1
@@ -848,12 +841,12 @@ zookeeper.connect=pipeline0:2181,pipeline1:2181,pipeline2:2181
 zookeeper.connection.timeout.ms=30000
 ```
 
->>>>>>> 2dee489138403fb66d9a9b3375ba00b13c2b1229
+
 
 Verify kafka is operating as intended on pipeline0  
 `ssh pipeline0`  
 
-<<<<<<< HEAD
+
 `sudo /usr/share/kafka/bin/kafka-topics.sh --bootstrap-server pipeline0:9092 --create --topic test --partitions 3 --replication-factor 3 && sudo /usr/share/kafka/bin/kafka-topics.sh --bootstrap-server pipeline0:9092 --describe --topic test`
 
 Delete the test topic and verify topic was deleted  
@@ -862,9 +855,9 @@ Delete the test topic and verify topic was deleted
 
 Create the zeek raw topic  
 `sudo /usr/share/kafka/bin/kafka-topics.sh --create --zookeeper pipeline0:2181 --replication-factor 3 --partitions 3 --topic zeek-raw && sudo /usr/share/kafka/bin/kafka-topics.sh --bootstrap-server pipeline0:9092 --describe --topic zeek-raw`  
-=======
+
 `sudo /usr/share/kafka/bin/kafka-topics.sh --create --zookeeper pipeline0:2181 --replication-factor 3 --partitions 3 --topic zeek-raw && sudo /usr/share/kafka/bin/kafka-topics.sh --create --zookeeper pipeline0:2181 --replication-factor 3 --partitions 3 --topic fsf-raw && sudo /usr/share/kafka/bin/kafka-topics.sh --create --zookeeper pipeline0:2181 --replication-factor 3 --partitions 3 --topic suricata-raw && sudo /usr/share/kafka/bin/kafka-topics.sh --bootstrap-server pipeline0:9092 --list`  
->>>>>>> 2dee489138403fb66d9a9b3375ba00b13c2b1229
+
 
 `exit`
 
@@ -876,7 +869,7 @@ Verify Kafka and Zeek are working together
 
 `ssh sensor`  
 
-<<<<<<< HEAD
+
 Edit the kafka script that will be loaded by zeek  
 `sudo vi /usr/share/zeek/site/scripts/kafka.zeek`
 
@@ -904,14 +897,14 @@ Verify streaming from the pipeline
 
 Generate traffic on the sensor and verify on pipeline0  
 `curl google.com`  
-=======
+
 `sudo sed -i 's/<sensor-ip>:9092/pipeline0:9092,pipeline1:9092,pipeline2:9092/g' /usr/share/zeek/site/scripts/kafka.zeek && sudo sed -i '109s|.*|@load ./scripts/kafka.zeek|' /usr/share/zeek/site/local.zeek && sudo -u zeek zeekctl deploy && sudo -u zeek zeekctl status` 
 
 Verify streaming from the pipeline  
 `ssh pipeline0`  
 
 `clear && echo "now checking zeek..." && sudo /usr/share/kafka/bin/kafka-console-consumer.sh --bootstrap-server pipeline0:9092 --topic zeek-raw`  
->>>>>>> 2dee489138403fb66d9a9b3375ba00b13c2b1229
+
 
 ---
 
@@ -922,7 +915,7 @@ Installing and Configuring Filebeat
 `ssh sensor`  
 
 Begin by installing the filebeat packages and dependencies  
-<<<<<<< HEAD
+
 `sudo yum install filebeat -y && sudo mv /etc/filebeat/filebeat{.yml,.yml.bk} && cd /etc/filebeat && sudo curl -LO https://repo/fileshare/filebeat/filebeat.yml && sudo vi filebeat.yml`  
 
 ```
@@ -939,22 +932,22 @@ Create the extra kafka topics to accept fsf-raw and suricata-raw
 Enable and start filebeat on the sensor  
 `ssh sensor`  
 `systemctl enable filebeat --now`  
-=======
+
 `sudo yum install filebeat -y && sudo mv /etc/filebeat/filebeat{.yml,.yml.bk} && cd /etc/filebeat && sudo curl -LO https://repo/fileshare/filebeat/filebeat.yml && sudo sed -i 's|"localhost:9092"|"pipeline0:9092","pipeline1:9092","pipeline2:9092"|g' /etc/filebeat/filebeat.yml && sudo systemctl enable filebeat --now && sudo systemctl status filebeat`  
->>>>>>> 2dee489138403fb66d9a9b3375ba00b13c2b1229
+
 
 Verify messages are added to suricata-raw and fsf-raw on pipeline0  
 `ssh pipeline0`  
 
-<<<<<<< HEAD
+
 `sudo /usr/share/kafka/bin/kafka-console-consumer.sh --bootstrap-server pipeline0:9092 --topic suricata-raw --from-beginning`
 
 `sudo /usr/share/kafka/bin/kafka-console-consumer.sh --bootstrap-server pipeline0:9092 --topic fsf-raw --from-beginning`
-=======
+
 `clear && echo "now checking suricata... " && sudo /usr/share/kafka/bin/kafka-console-consumer.sh --bootstrap-server pipeline0:9092 --topic suricata-raw --from-beginning`  
 
 `clear && echo "now checking fsf..." && sudo /usr/share/kafka/bin/kafka-console-consumer.sh --bootstrap-server pipeline0:9092 --topic fsf-raw --from-beginning`  
->>>>>>> 2dee489138403fb66d9a9b3375ba00b13c2b1229
+
 
 ---
 
@@ -967,13 +960,13 @@ Installing and Configuring Elasticsearch as a Cluster
 `ssh elastic2`  
 
 Begin by installing elasticsearch  
-<<<<<<< HEAD
+
 `sudo yum install elasticsearch -y && sudo mv /etc/elasticsearch/elasticsearch{.yml,.yml.bk} && cd ~ && sudo curl -LO https://repo/fileshare/elasticsearch/elasticsearch.yml && sudo vi elasticsearch.yml`  
-=======
+
 `sudo -s`  
 
 `sudo yum install elasticsearch -y && sudo mv /etc/elasticsearch/elasticsearch{.yml,.yml.bk} && sudo vi /etc/elasticsearch/elasticsearch.yml`  
->>>>>>> 2dee489138403fb66d9a9b3375ba00b13c2b1229
+
 
 ```
 cluster.name:  nsm-cluster
@@ -1009,7 +1002,7 @@ discovery.seed_hosts: ["elastic0","elastic1","elastic2"]
 cluster.initial_master_nodes: ["es-node-0","es-node-1","es-node-2"]
 ```
 
-<<<<<<< HEAD
+
 Move the edited config to the elastic directory and change the perms  
 `sudo mv ~/elasticsearch.yml /etc/elasticsearch/elasticsearch.yml && sudo chown -R elasticsearch: /etc/elasticsearch/ && sudo chmod 640 /etc/elasticsearch/elasticsearch.yml && sudo mkdir /usr/lib/systemd/system/elasticsearch.service.d && sudo chmod 755 /usr/lib/systemd/system/elasticsearch.service.d && sudo vi /usr/lib/systemd/system/elasticsearch.service.d/override.conf`  
 
@@ -1029,12 +1022,12 @@ Create and modify the data directory
 `sudo mkdir -p /data/elasticsearch && sudo chown -R elasticsearch: /data/elasticsearch && sudo chmod 755 /data/elasticsearch && sudo firewall-cmd --add-port={9200,9300}/tcp --permanent && sudo firewall-cmd --reload && sudo systemctl enable elasticsearch --now`  
 
 Verify the cluster is operating as intended  
-=======
+
 `sudo chown -R elasticsearch:elasticsearch /etc/elasticsearch/ && sudo chmod 640 /etc/elasticsearch/elasticsearch.yml && sudo mkdir /usr/lib/systemd/system/elasticsearch.service.d && sudo chmod 755 /usr/lib/systemd/system/elasticsearch.service.d && echo -e "[Service]\nLimitMEMLOCK=infinity" | sudo tee /usr/lib/systemd/system/elasticsearch.service.d/override.conf && sudo chmod 644 /usr/lib/systemd/system/elasticsearch.service.d/override.conf && sudo systemctl daemon-reload && echo -e "-Xms2g\n-Xmx2g" | sudo tee /etc/elasticsearch/jvm.options.d/jvm_override.conf > /dev/null && sudo mkdir -p /data/elasticsearch && sudo chown -R elasticsearch: /data/elasticsearch && sudo chmod 755 /data/elasticsearch && sudo firewall-cmd --add-port={9200,9300}/tcp --permanent && sudo firewall-cmd --reload && sudo systemctl enable elasticsearch --now && sudo systemctl status elasticsearch && exit`  
 
 Verify the cluster is operating as intended   
 `exit`   
->>>>>>> 2dee489138403fb66d9a9b3375ba00b13c2b1229
+
 `curl elastic0:9200/_cat/nodes`  
 
 ---
@@ -1086,14 +1079,14 @@ Edit the nginx config and unload the default server
 ```
 
 Edit the firewall config to allow the newly created server through  
-<<<<<<< HEAD
+
 `sudo firewall-cmd --add-port=80/tcp --permanent && sudo firewall-cmd --reload`  
 
 Enable and start nginx  
 `sudo systemctl enable nginx --now && sudo systemctl status nginx && sudo systemctl enable kibana --now && sudo systemctl status kibana` 
-=======
+
 `sudo firewall-cmd --add-port=80/tcp --permanent && sudo firewall-cmd --reload && sudo systemctl enable nginx --now && sudo systemctl status nginx && sudo systemctl enable kibana --now && sudo systemctl status kibana` 
->>>>>>> 2dee489138403fb66d9a9b3375ba00b13c2b1229
+
 
 Curl the ecs file from the local repository  
 `sudo curl -LO https://repo/fileshare/kibana/ecskibana.tar.gz && tar -zxvf ecskibana.tar.gz && sudo yum install jq -y && cd ~/ecskibana/ && sudo ./import-index-templates.sh http://elastic0:9200`  
@@ -1102,9 +1095,9 @@ Curl the ecs file from the local repository
 Verify kibana is operating as intended by browsing to kibana  
 `exit`  
 
-<<<<<<< HEAD
+
 `http://kibana`
-=======
+
 `http://kibana`
 
 ---
@@ -1145,4 +1138,4 @@ ecs-zeek-*        @timestamp
 fsf-*             @timestamp
 ecs-*             @timestamp
 ```
->>>>>>> 2dee489138403fb66d9a9b3375ba00b13c2b1229
+
